@@ -1,86 +1,116 @@
 package org.openrndr.extra.kinect
 
-import org.openrndr.Extension
 import org.openrndr.draw.*
+import org.openrndr.extra.depth.camera.DepthCamera
+import org.openrndr.math.IntVector2
 import org.openrndr.resourceUrl
 import java.lang.RuntimeException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
- * Represents all the accessible kinects handled by a specific driver (V1, V2).
- *
- * @param <CTX> data needed to make low level kinect support calls.
+ * Represents all the accessible kinects handled by a specific driver (V1, V2, etc.).
  */
-interface Kinects<CTX> {
-
-    fun countDevices(): Int
+interface Kinect {
 
     /**
-     * Starts kinect device of a given number.
+     * Lists available kinect devices.
+     */
+    fun listDevices(): List<Device.Info>
+
+    /**
+     * Starts kinect device of a given index.
      *
-     * @param num the kinect device index (starts with 0). If no value specified,
+     * @param index the kinect device index (starts with 0). If no value specified,
      *          it will default to 0.
-     * @throws KinectException if device of such a number does not exist
-     *          (better to count them first), or it was already started.
-     * @see countDevices
+     * @throws KinectException if device of such an index does not exist,
+     *          or it was already started.
+     * @see listDevices
      */
-    fun startDevice(num: Int = 0): KinectDevice<CTX>
+    fun openDevice(index: Int = 0): Device
 
     /**
-     * Executes low level Kinect commands in the kinect thread.
+     * Starts kinect device of a given serial number.
+     *
+     * @param serialNumber the kinect device serialNumber.
+     * @throws KinectException if device of such a serial number does not exist
+     *          , or it was already started.
+     * @see listDevices
      */
-    fun <T> execute(commands: (CTX) -> T) : T
+    fun openDevice(serialNumber: String): Device
+
+    /**
+     * The list of kinect devices which are already opened and haven't been closed.
+     */
+    val activeDevices: List<Device>
+
+    /**
+     * Represents physical kinect device.
+     */
+    interface Device {
+
+        /**
+         * Provides information about kinect device.
+         *
+         * Note: in implementation it can be extended with any
+         * additional information next to the serial number.
+         */
+        interface Info {
+            val serialNumber: String
+        }
+
+        val info: Info
+
+        val depthCamera: KinectDepthCamera
+
+        fun close()
+
+    }
 
 }
 
 /**
- * Represents specific device.
- *
- * @param CTX type of data needed to make low level kinect support calls (e.g. freenect contexts).
+ * Generic interface for all the kinect cameras.
  */
-interface KinectDevice<CTX> : Extension {
-
-    val depthCamera: KinectDepthCamera
-
-    /**
-     * Executes low level Kinect commands in the kinect thread in the context of this device.
-     */
-    fun <T> execute(commands: (CTX) -> T): T
-
-}
-
 interface KinectCamera {
+
     var enabled: Boolean
-    val width: Int
-    val height: Int
-    var mirror: Boolean
-    val currentFrame: ColorBuffer
-    /**
-     * Returns the latest frame, but only once. Useful for the scenarios
-     * where each new frame triggers extra computation. Therefore the same
-     * expensive operation might happen only once, especially when the refresh
-     * rate of the target screen is higher than kinect's 30 fps.
-     * <p>
-     * Example usage:
-     * <pre>
-     * kinect.depthCamera.getLatestFrame()?.let { frame ->
-     *     grayscaleFilter.apply(frame, grayscaleBuffer)
-     * }
-     * </pre>
-     */
-    fun getLatestFrame(): ColorBuffer?
+
 }
 
-interface KinectDepthCamera : KinectCamera {
+interface KinectDepthCamera : KinectCamera, DepthCamera {
     /* no special attributes at the moment */
 }
 
-class KinectException(msg: String) : RuntimeException(msg)
+open class KinectException(msg: String) : RuntimeException(msg)
 
+fun kinectRawDepthByteBuffer(resolution: IntVector2): ByteBuffer =
+    ByteBuffer.allocateDirect(
+        resolution.x * resolution.y * 2
+    ).also {
+        it.order(ByteOrder.nativeOrder())
+    }
+
+class DepthToRawNormalizedMapper : Filter(
+    filterShaderFromUrl(
+        resourceUrl(
+            "kinect-depth-to-raw-normalized-mapper.frag",
+            Kinect::class
+        )
+    )
+) {
+
+    /** 2047 for kinect 1, 4095 for kinect 2 */
+    var maxDepthValue: Double by parameters
+
+}
+
+// TODO all these filters should be moved to orx-color
 /**
  * Maps depth values to grayscale.
  */
 class DepthToGrayscaleMapper : Filter(
-        filterShaderFromUrl(resourceUrl("depth-to-grayscale.frag", Kinects::class))
+    filterShaderFromUrl(resourceUrl("depth-to-grayscale.frag", Kinect::class))
 )
 
 /**
@@ -90,7 +120,7 @@ class DepthToGrayscaleMapper : Filter(
  * article.
  */
 class DepthToColorsZucconi6Mapper : Filter(
-        filterShaderFromUrl(resourceUrl("depth-to-colors-zucconi6.frag", Kinects::class))
+    filterShaderFromUrl(resourceUrl("depth-to-colors-zucconi6.frag", Kinect::class))
 )
 
 /**
@@ -101,5 +131,5 @@ class DepthToColorsZucconi6Mapper : Filter(
  * by Google.
  */
 class DepthToColorsTurboMapper : Filter(
-        filterShaderFromUrl(resourceUrl("depth-to-colors-turbo.frag", Kinects::class))
+    filterShaderFromUrl(resourceUrl("depth-to-colors-turbo.frag", Kinect::class))
 )
