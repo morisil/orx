@@ -91,10 +91,10 @@ fun kinectRawDepthByteBuffer(resolution: IntVector2): ByteBuffer =
         it.order(ByteOrder.nativeOrder())
     }
 
-class DepthToRawNormalizedMapper : Filter(
+class KinectDepthToRawNormalized : Filter(
     filterShaderFromUrl(
         resourceUrl(
-            "kinect-depth-to-raw-normalized-mapper.frag",
+            "kinect-depth-to-raw-normalized.frag",
             Kinect::class
         )
     )
@@ -105,31 +105,35 @@ class DepthToRawNormalizedMapper : Filter(
 
 }
 
-// TODO all these filters should be moved to orx-color
+abstract class RedToColormap(shader: String) : Filter(
+    filterShaderFromUrl(resourceUrl(shader, Kinect::class))
+) {
+    var minValue: Double by parameters
+    var maxValue: Double by parameters
+    var curve: Double by parameters
+    init {
+        minValue = 0.0
+        maxValue = 1.0
+        curve = 1.0
+    }
+}
+
 /**
  * Maps depth values to grayscale.
  */
-class DepthToGrayscaleMapper : Filter(
-    filterShaderFromUrl(resourceUrl("depth-to-grayscale.frag", Kinect::class))
-)
+class RedToGrayscale : RedToColormap("red-to-grayscale.frag")
 
 /**
  * Maps depth values to color map according to natural light dispersion as described
  * by Alan Zucconi in the
- * <a href="https://www.alanzucconi.com/2017/07/15/improving-the-rainbow/">Improving the Rainbow</a>
+ * [Improving the Rainbow](https://www.alanzucconi.com/2017/07/15/improving-the-rainbow/)
  * article.
  */
-class DepthToColorsZucconi6Mapper : Filter(
-    filterShaderFromUrl(resourceUrl("depth-to-colors-zucconi6.frag", Kinect::class))
-)
+class RedToSpectralZucconi : RedToColormap("red-to-spectral-zucconi.frag")
 
 /**
  * Maps depth values to color map according to
- * <a href="https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html">
- *     Turbo, An Improved Rainbow Colormap for Visualization
- * </a>
+ * [Turbo, An Improved Rainbow Colormap for Visualization](https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html)
  * by Google.
  */
-class DepthToColorsTurboMapper : Filter(
-    filterShaderFromUrl(resourceUrl("depth-to-colors-turbo.frag", Kinect::class))
-)
+class RedToTurboColormap : RedToColormap("red-to-turbo-colormap.frag")

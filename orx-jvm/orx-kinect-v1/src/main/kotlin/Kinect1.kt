@@ -105,8 +105,8 @@ class Kinect1 : Kinect, Extension {
     private val logger = KotlinLogging.logger {}
 
     private lateinit var program: Program
-    private lateinit var depthToRawNormalizedMapper: DepthToRawNormalizedMapper
-    private lateinit var depthToMetersMapper: Filter
+    private lateinit var depthToRawNormalized: KinectDepthToRawNormalized
+    private lateinit var depthToMeters: Filter
 
     private lateinit var freenect: Freenect
 
@@ -115,9 +115,9 @@ class Kinect1 : Kinect, Extension {
         if (!enabled) { return }
         logger.info("Starting kinect1 support")
         this.program = program
-        depthToRawNormalizedMapper = DepthToRawNormalizedMapper()
-        depthToRawNormalizedMapper.maxDepthValue = 2047.0
-        depthToMetersMapper = Filter(
+        depthToRawNormalized = KinectDepthToRawNormalized()
+        depthToRawNormalized.maxDepthValue = 2047.0
+        depthToMeters = Filter(
             filterShaderFromUrl(
                 resourceUrl(
                     "kinect1-depth-to-meters-mapper.frag",
@@ -267,11 +267,13 @@ class Kinect1 : Kinect, Extension {
                 resolution.y,
                 format = ColorFormat.R,
                 type = ColorType.FLOAT16 // in the future we might want to choose the precision here
-            )
+            ).also {
+                it.filter(MinifyingFilter.LINEAR, MagnifyingFilter.LINEAR)
+            }
 
             private var mutableCurrentFrame = processedFrameBuffer
 
-            private var depthMapper = depthToRawNormalizedMapper
+            private var depthMapper = depthToRawNormalized
 
             // TODO add cancelation
             private lateinit var frameFlowChannel: SendChannel<ColorBuffer>
@@ -285,6 +287,8 @@ class Kinect1 : Kinect, Extension {
             init {
                 program.launch {
                     bytesFlow.collect { bytes ->
+                        // TODO do we need to do rewind here?
+                        // TODO (bb as Buffer).rewind()
                         rawBuffer.write(bytes)
                         if (depthMeasurement != DepthMeasurement.RAW) {
                             depthMapper.apply(rawBuffer, processedFrameBuffer)

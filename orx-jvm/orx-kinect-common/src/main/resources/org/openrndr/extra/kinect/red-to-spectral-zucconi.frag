@@ -9,6 +9,7 @@ varying vec2 v_texCoord0;
 uniform sampler2D tex0;             // kinect raw
 uniform float     minValue;
 uniform float     maxValue;
+uniform float       curve;
 
 #ifndef OR_GL_FRAGCOLOR
 out vec4 o_color;
@@ -80,6 +81,8 @@ void main() {
     float red = texture2D(tex0, v_texCoord0).r;
     #endif
     float value = (red - minValue) / (maxValue - minValue);
+    value *= step(value, 1.);
+    value = pow(value, curve);
     vec4 result = vec4(spectral_zucconi6(value), 1.);
     #ifdef OR_GL_FRAGCOLOR
     gl_FragColor = result;

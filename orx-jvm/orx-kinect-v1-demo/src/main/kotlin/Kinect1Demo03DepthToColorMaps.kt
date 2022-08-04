@@ -20,9 +20,9 @@ import org.openrndr.launch
  *   [Turbo, An Improved Rainbow Colormap for Visualization](https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html)
  *   by Google.
  *
- * @see DepthToGrayscaleMapper
- * @see DepthToColorsZucconi6Mapper
- * @see DepthToColorsTurboMapper
+ * @see RedToGrayscale
+ * @see RedToSpectralZucconi
+ * @see RedToTurboColormap
  */
 fun main() = application {
     configure {
@@ -34,12 +34,17 @@ fun main() = application {
         val device = kinect.openDevice()
         device.depthCamera.enabled = true
         val camera = device.depthCamera
-        val grayscaleFilter = DepthToGrayscaleMapper()
-        val zucconiFilter = DepthToColorsZucconi6Mapper()
-        val turboFilter = DepthToColorsTurboMapper()
-        val grayscaleBuffer = colorBuffer(camera.resolution.x, camera.resolution.y, format = ColorFormat.RGB)
-        val zucconiBuffer = colorBuffer(camera.resolution.x, camera.resolution.y, format = ColorFormat.RGB)
-        val turboBuffer = colorBuffer(camera.resolution.x, camera.resolution.y, format = ColorFormat.RGB)
+        fun outputBuffer() = colorBuffer(
+            camera.resolution.x,
+            camera.resolution.y,
+            format = ColorFormat.RGB
+        )
+        val toGrayscale = RedToGrayscale()
+        val toZucconi = RedToSpectralZucconi()
+        val toTurbo = RedToTurboColormap()
+        val grayscaleBuffer = outputBuffer()
+        val zucconiBuffer = outputBuffer()
+        val turboBuffer = outputBuffer()
 
         /*
          * Note: the frameFlow will deliver new frames as soon as they
@@ -55,9 +60,9 @@ fun main() = application {
          */
         launch {
             camera.frameFlow.collect { frame ->
-                grayscaleFilter.apply(frame, grayscaleBuffer)
-                zucconiFilter.apply(frame, zucconiBuffer)
-                turboFilter.apply(frame, turboBuffer)
+                toGrayscale.apply(frame, grayscaleBuffer)
+                toZucconi.apply(frame, zucconiBuffer)
+                toTurbo.apply(frame, turboBuffer)
             }
         }
         extend {
