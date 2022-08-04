@@ -1,7 +1,18 @@
 #version 330
 
+#ifdef OR_IN_OUT
+in vec2 v_texCoord0;
+#else
+varying vec2 v_texCoord0;
+#endif
+
 uniform sampler2D tex0;             // kinect raw
-out     vec3 color;
+uniform float     minValue;
+uniform float     maxValue;
+
+#ifndef OR_GL_FRAGCOLOR
+out vec4 o_color;
+#endif
 
 // Spectral Colour Schemes
 // By Alan Zucconi
@@ -58,11 +69,21 @@ vec3 spectral_zucconi6 (float x)
     const vec3 y2 = vec3(0.84897130, 0.88445281, 0.73949448);
 
     return
-    bump3y(c1 * (x - x1), y1) +
-    bump3y(c2 * (x - x2), y2) ;
+        bump3y(c1 * (x - x1), y1) +
+        bump3y(c2 * (x - x2), y2);
 }
 
 void main() {
-    float depth = texelFetch(tex0, ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y)), 0).r;
-    color = (depth >= .999) ? vec3(0) : spectral_zucconi6(depth);
+    #ifndef OR_GL_TEXTURE2D
+    float red = texture(tex0, v_texCoord0).r;
+    #else
+    float red = texture2D(tex0, v_texCoord0).r;
+    #endif
+    float value = (red - minValue) / (maxValue - minValue);
+    vec4 result = vec4(spectral_zucconi6(value), 1.);
+    #ifdef OR_GL_FRAGCOLOR
+    gl_FragColor = result;
+    #else
+    o_color = result;
+    #endif
 }

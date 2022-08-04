@@ -1,7 +1,18 @@
 #version 330
 
+#ifdef OR_IN_OUT
+in vec2 v_texCoord0;
+#else
+varying vec2 v_texCoord0;
+#endif
+
 uniform sampler2D tex0;
-out     vec3 color;
+uniform float     minValue;
+uniform float     maxValue;
+
+#ifndef OR_GL_FRAGCOLOR
+out vec4 o_color;
+#endif
 
 float saturate(in float x) {
     return max(0, min(1, x));
@@ -29,13 +40,23 @@ vec3 TurboColormap(in float x) {
     vec4 v4 = vec4( 1.0, x, x * x, x * x * x);
     vec2 v2 = v4.zw * v4.z;
     return vec3(
-    dot(v4, kRedVec4)   + dot(v2, kRedVec2),
-    dot(v4, kGreenVec4) + dot(v2, kGreenVec2),
-    dot(v4, kBlueVec4)  + dot(v2, kBlueVec2)
+        dot(v4, kRedVec4)   + dot(v2, kRedVec2),
+        dot(v4, kGreenVec4) + dot(v2, kGreenVec2),
+        dot(v4, kBlueVec4)  + dot(v2, kBlueVec2)
     );
 }
 
 void main() {
-    float depth = texelFetch(tex0, ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y)), 0).r;
-    color = (depth >= .999) ? vec3(0) : TurboColormap(depth);
+    #ifndef OR_GL_TEXTURE2D
+    float red = texture(tex0, v_texCoord0).r;
+    #else
+    float red = texture2D(tex0, v_texCoord0).r;
+    #endif
+    float value = (red - minValue) / (maxValue - minValue);
+    vec4 result = vec4(TurboColormap(value), 1.);
+    #ifdef OR_GL_FRAGCOLOR
+    gl_FragColor = result;
+    #else
+    o_color = result;
+    #endif
 }
