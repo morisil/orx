@@ -7,3 +7,4 @@ build/
 .idea/
 gradle.properties
 /ShaderError.txt
+/hs_err_pid*.log
