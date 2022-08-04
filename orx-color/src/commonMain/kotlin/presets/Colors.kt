@@ -1,12 +1,10 @@
 @file:Suppress("unused")
 
-package org.openrndr.extras.color.presets
+package org.openrndr.extra.color.presets
 
 import org.openrndr.color.ColorRGBa
 import org.openrndr.color.rgb
 
-val ColorRGBa.Companion.CYAN by lazy { rgb(0.0, 1.0, 1.0) }
-val ColorRGBa.Companion.MAGENTA by lazy { rgb(1.0, 0.0, 1.0) }
 val ColorRGBa.Companion.ALICE_BLUE by lazy { rgb(0.941176, 0.972549, 1.0) }
 val ColorRGBa.Companion.ANTIQUE_WHITE by lazy { rgb(0.980392, 0.921569, 0.843137) }
 val ColorRGBa.Companion.AQUA by lazy { rgb(0.0, 1.0, 1.0) }

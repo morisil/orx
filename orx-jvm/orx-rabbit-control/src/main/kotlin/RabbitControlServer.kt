@@ -14,8 +14,8 @@ import org.openrndr.extra.fx.blend.Darken
 import org.openrndr.extra.parameters.Parameter
 import org.openrndr.extra.parameters.ParameterType
 import org.openrndr.extra.parameters.listParameters
-import org.openrndr.extras.imageFit.FitMethod
-import org.openrndr.extras.imageFit.imageFit
+import org.openrndr.extra.imageFit.FitMethod
+import org.openrndr.extra.imageFit.imageFit
 import org.openrndr.math.Vector2
 import org.openrndr.math.Vector3
 import org.openrndr.math.Vector4
@@ -217,7 +217,7 @@ class RabbitControlServer(private val showQRUntilClientConnects: Boolean = true,
                 ParameterType.Color -> {
                     val param = rabbitServer.createRGBAParameter(it.label)
                     val c = (it.property as KMutableProperty1<Any, ColorRGBa>).get(objectWithParameters)
-                    param.value = Color(c.r.toFloat(), c.g.toFloat(), c.b.toFloat(), c.a.toFloat())
+                    param.value = Color(c.r.toFloat(), c.g.toFloat(), c.b.toFloat(), c.alpha.toFloat())
                     param
                 }
                 ParameterType.Vector2 -> {
