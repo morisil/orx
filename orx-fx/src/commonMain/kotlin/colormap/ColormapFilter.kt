@@ -14,6 +14,7 @@ abstract class ColormapFilter(code: String, name: String) : Filter(mppFilterShad
 
     @DoubleParameter(label = "curve", low = 0.0, high = 10.0, order = 2)
     var curve: Double by parameters
+
     init {
         minValue = 0.0
         maxValue = 1.0
