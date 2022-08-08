@@ -5,8 +5,10 @@ import org.openrndr.extra.depth.camera.DepthCamera
 import org.openrndr.math.IntVector2
 import org.openrndr.resourceUrl
 import java.lang.RuntimeException
+import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.reflect.KClass
 
 /**
  * Represents all the accessible kinects handled by a specific driver (V1, V2, etc.).
@@ -91,49 +93,48 @@ fun kinectRawDepthByteBuffer(resolution: IntVector2): ByteBuffer =
         it.order(ByteOrder.nativeOrder())
     }
 
-class KinectDepthToRawNormalized : Filter(
-    filterShaderFromUrl(
-        resourceUrl(
-            "kinect-depth-to-raw-normalized.frag",
-            Kinect::class
+fun <T : Kinect> KClass<T>.filterFrom(resource: String, flipH: Boolean, flipV: Boolean): Filter {
+    val url = resourceUrl(resource, this)
+    val preamble =
+        (if (flipH) "#define KINECT_FLIPH\n" else "") +
+        (if (flipV) "#define KINECT_FLIPV\n" else "")
+    return Filter(
+        filterShaderFromCode(
+            "$preamble\n${URL(url).readText()}",
+            "kinect-shader: $url + flipH: $flipH, flipV: $flipV"
         )
     )
-) {
-
-    /** 2047 for kinect 1, 4095 for kinect 2 */
-    var maxDepthValue: Double by parameters
-
 }
 
-abstract class RedToColormap(shader: String) : Filter(
-    filterShaderFromUrl(resourceUrl(shader, Kinect::class))
-) {
-    var minValue: Double by parameters
-    var maxValue: Double by parameters
-    var curve: Double by parameters
-    init {
-        minValue = 0.0
-        maxValue = 1.0
-        curve = 1.0
+class KinectDepthMappers<T : Kinect>(resource: String, `class`: KClass<T>) {
+
+    private val flipHFalseVFalse = `class`.filterFrom(resource, flipH = false, flipV = false)
+    private val flipHFalseVTrue = `class`.filterFrom(resource, flipH = false, flipV = true)
+    private val flipHTrueVFalse = `class`.filterFrom(resource, flipH = true, flipV = false)
+    private val flipHTrueVTrue = `class`.filterFrom(resource, flipH = true, flipV = true)
+
+    fun select(flipH: Boolean, flipV: Boolean): Filter =
+        if (flipH) {
+            if (flipV) flipHTrueVTrue
+            else flipHTrueVFalse
+        } else {
+            if (flipV) flipHFalseVTrue
+            else flipHFalseVFalse
+        }
+
+    fun update(resolution: IntVector2) {
+        val resolutionXMinus1 = resolution.x - 1
+        flipHTrueVFalse.parameters["resolutionXMinus1"] = resolutionXMinus1
+        flipHTrueVTrue.parameters["resolutionXMinus1"] = resolutionXMinus1
     }
+
+    fun forEach(block: (filter: Filter) -> Unit) {
+        block(flipHFalseVFalse)
+        block(flipHFalseVTrue)
+        block(flipHTrueVFalse)
+        block(flipHTrueVTrue)
+    }
+
 }
 
-/**
- * Maps depth values to grayscale.
- */
-class RedToGrayscale : RedToColormap("red-to-grayscale.frag")
-
-/**
- * Maps depth values to color map according to natural light dispersion as described
- * by Alan Zucconi in the
- * [Improving the Rainbow](https://www.alanzucconi.com/2017/07/15/improving-the-rainbow/)
- * article.
- */
-class RedToSpectralZucconi : RedToColormap("red-to-spectral-zucconi.frag")
-
-/**
- * Maps depth values to color map according to
- * [Turbo, An Improved Rainbow Colormap for Visualization](https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html)
- * by Google.
- */
-class RedToTurboColormap : RedToColormap("red-to-turbo-colormap.frag")
+fun depthToRawNormalizedMappers() = KinectDepthMappers("depth-to-raw-normalized.frag", Kinect::class)
