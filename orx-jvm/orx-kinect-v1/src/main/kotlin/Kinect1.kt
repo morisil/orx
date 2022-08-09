@@ -1,10 +1,9 @@
 package org.openrndr.extra.kinect.v1
 
-import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.flow.Flow
 import mu.KotlinLogging
-import org.bytedeco.javacpp.BytePointer
 import org.bytedeco.javacpp.Pointer
 import org.bytedeco.libfreenect.*
 import org.bytedeco.libfreenect.global.freenect.*
@@ -16,7 +15,6 @@ import org.openrndr.extra.depth.camera.DepthMeasurement
 import org.openrndr.extra.kinect.*
 import org.openrndr.launch
 import org.openrndr.math.IntVector2
-import org.openrndr.resourceUrl
 import java.util.*
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicBoolean
@@ -28,48 +26,23 @@ class Kinect1 : Kinect, Extension {
 
     override var enabled: Boolean = true
 
-    /**
-     * Defaults to 100 ms. Delay seems to be necessary due to
-     * either my misunderstanding or some weird freenect bug.
-     *
-     * Without the delay between starting depth camera and
-     * registering depth callback, no frames are transferred
-     * at all. However this problem happens only on the first
-     * try with freshly connected kinect.
-     * Subsequent runs of the same program don't require
-     * this delay at all.
-     */
-    // TODO is it still needed?
-    var depthCameraInitializationDelay: Long = 100
-
     class DeviceInfo(
         override val serialNumber: String,
     ) : Kinect.Device.Info {
         override fun toString(): String {
-            return "Kinect1[serial=$serialNumber]"
+            return "Kinect1[$serialNumber]"
         }
-    }
-
-    /**
-     * Sub-devices to open when [openDevice] is called.
-     */
-    enum class SubDevice(val code: Int) {
-
-        MOTOR(FREENECT_DEVICE_MOTOR),
-        CAMERA(FREENECT_DEVICE_CAMERA),
-        AUDIO(FREENECT_DEVICE_AUDIO);
-
-        companion object {
-            val allSubDevices = setOf(MOTOR, CAMERA, AUDIO)
-        }
-
     }
 
     /**
      * Log level for native freenect logging.
      *
+     * Note: logs will appear on standard out for performance reasons.
+     *
      * @param code the code of corresponding freenect log level.
+     * @see Kinect1.logLevel
      */
+    @Suppress("unused")
     enum class LogLevel(val code: Int) {
 
         /** Crashing/non-recoverable errors. */
@@ -98,6 +71,9 @@ class Kinect1 : Kinect, Extension {
 
     }
 
+    /**
+     * Kinect native log level, defaults to `INFO`.
+     */
     var logLevel: LogLevel
         get() = freenect.logLevel
         set(value) { freenect.logLevel = value }
@@ -105,57 +81,24 @@ class Kinect1 : Kinect, Extension {
     private val logger = KotlinLogging.logger {}
 
     private lateinit var program: Program
-    private lateinit var depthToRawNormalized: KinectDepthToRawNormalized
-    private lateinit var depthToMeters: Filter
 
     private lateinit var freenect: Freenect
 
 
     override fun setup(program: Program) {
         if (!enabled) { return }
-        logger.info("Starting kinect1 support")
+        logger.info("Starting Kinect1 support")
         this.program = program
-        depthToRawNormalized = KinectDepthToRawNormalized()
-        depthToRawNormalized.maxDepthValue = 2047.0
-        depthToMeters = Filter(
-            filterShaderFromUrl(
-                resourceUrl(
-                    "kinect1-depth-to-meters-mapper.frag",
-                    Kinect1::class
-                )
-            )
-        )
         freenect = Freenect(initialLogLevel = LogLevel.INFO)
     }
 
-    override fun listDevices(): List<DeviceInfo> = freenect.callBlocking("listDevices") { _, _ ->
+    override fun listDevices(): List<DeviceInfo> = freenect.callBlocking(
+        "listDevices"
+    ) { _, _ ->
         freenect.listDevices()
     }
 
-    override fun openDevice(index: Int): Kinect1.V1Device =
-        openDevice(index, SubDevice.allSubDevices)
-
-    /**
-     * Starts kinect device of a given index with all the specified [SubDevice]s.
-     *
-     * Note: [subDevices] defaults to empty set, which will open all
-     * the [SubDevice]s.
-     *
-     * Freenect docs: In particular, this allows libfreenect
-     * to grab only a subset of the devices in the Kinect,
-     * so you could (for instance) use libfreenect to handle audio
-     * and motor support while letting OpenNI have access to the
-     * cameras. If a device is not supported on a particular
-     * platform, its flag will be ignored.
-     *
-     * @param index the kinect device index (starts with 0). If no value specified,
-     *          it will default to 0.
-     * @param subDevices the set of sub devices to open as well.
-     * @throws Kinect1Exception if device of such an index does not exist,
-     *          or it was already started.
-     * @see listDevices
-     */
-    fun openDevice(index: Int, subDevices: Set<SubDevice>): V1Device {
+    override fun openDevice(index: Int): V1Device {
         val result = freenect.callBlocking("openDeviceByIndex") { ctx, _ ->
             val devices = freenect.listDevices()
             if (devices.isEmpty()) {
@@ -166,25 +109,21 @@ class Kinect1 : Kinect, Extension {
             Pair(
                 openFreenectDevice(
                     ctx,
-                    devices[index].serialNumber,
-                    subDevices
+                    devices[index].serialNumber
                 ),
                 devices[index]
             )
         }
-        val device = V1Device(result.first, result.second, subDevices)
+        val device = V1Device(result.first, result.second)
         mutableActiveDevices.add(device)
         return device
     }
 
-    override fun openDevice(serialNumber: String): V1Device =
-        openDevice(serialNumber, SubDevice.allSubDevices)
-
-    fun openDevice(serialNumber: String, subDevices: Set<SubDevice>): V1Device {
+    override fun openDevice(serialNumber: String): V1Device {
         val dev = freenect.callBlocking("openDeviceBySerial") { ctx, _ ->
-            openFreenectDevice(ctx, serialNumber, subDevices)
+            openFreenectDevice(ctx, serialNumber)
         }
-        val device = V1Device(dev, DeviceInfo(serialNumber), subDevices)
+        val device = V1Device(dev, DeviceInfo(serialNumber))
         mutableActiveDevices.add(device)
         return device
     }
@@ -197,11 +136,8 @@ class Kinect1 : Kinect, Extension {
     private fun openFreenectDevice(
         ctx: freenect_context,
         serialNumber: String,
-        subDevices: Set<SubDevice>
     ): freenect_device {
         val dev = freenect_device()
-        // TODO fix subdevices
-        //freenect_select_subdevices(ctx, subDevices.toFreenectExpression())
         freenect.checkReturn(
             freenect_open_device_by_camera_serial(ctx, dev, serialNumber)
         )
@@ -219,6 +155,7 @@ class Kinect1 : Kinect, Extension {
         freenect.close()
     }
 
+    @Suppress("unused")
     fun executeInFreenectContext(
         name: String,
         block: (ctx: freenect_context, usbCtx: freenect_usb_context) -> Unit
@@ -237,11 +174,8 @@ class Kinect1 : Kinect, Extension {
 
     inner class V1Device(
         private val dev: freenect_device,
-        override val info: DeviceInfo,
-        val activeSubDevices: Set<SubDevice>
+        override val info: DeviceInfo
     ) : Kinect.Device {
-
-        private lateinit var depthMapper: Filter
 
         inner class V1DepthCamera(
             override val resolution: IntVector2,
@@ -249,9 +183,9 @@ class Kinect1 : Kinect, Extension {
 
             private val enabledState = AtomicBoolean(false)
 
-            private var bytesIn = kinectRawDepthByteBuffer(resolution)
-            private var bytesOut = kinectRawDepthByteBuffer(resolution)
-            private val bytesFlow = MutableStateFlow(bytesOut)
+            private var bytesFront = kinectRawDepthByteBuffer(resolution)
+            private var bytesBack = kinectRawDepthByteBuffer(resolution)
+            private val bytesFlow = MutableStateFlow(bytesBack) // the first frame will come from bytesFront
 
             private val rawBuffer = colorBuffer(
                 resolution.x,
@@ -273,10 +207,9 @@ class Kinect1 : Kinect, Extension {
 
             private var mutableCurrentFrame = processedFrameBuffer
 
-            private var depthMapper = depthToRawNormalized
-
-            // TODO add cancelation
-            private lateinit var frameFlowChannel: SendChannel<ColorBuffer>
+            private val depthMappers = Kinect1DepthMappers().apply {
+                update(resolution)
+            }
 
             private val mutableFrameFlow = MutableSharedFlow<ColorBuffer>()
 
@@ -284,17 +217,11 @@ class Kinect1 : Kinect, Extension {
 
             override val frameFlow: Flow<ColorBuffer> = mutableFrameFlow
 
-            init {
-                program.launch {
-                    bytesFlow.collect { bytes ->
-                        // TODO do we need to do rewind here?
-                        // TODO (bb as Buffer).rewind()
-                        rawBuffer.write(bytes)
-                        if (depthMeasurement != DepthMeasurement.RAW) {
-                            depthMapper.apply(rawBuffer, processedFrameBuffer)
-                        }
-                        mutableFrameFlow.emit(mutableCurrentFrame)
-                    }
+            private val frameEmitterJob: Job = program.launch {
+                bytesFlow.collect { bytes ->
+                    rawBuffer.write(bytes)
+                    depthMappers.mapper?.apply(rawBuffer, processedFrameBuffer)
+                    mutableFrameFlow.emit(mutableCurrentFrame)
                 }
             }
 
@@ -304,12 +231,12 @@ class Kinect1 : Kinect, Extension {
                     depth: Pointer,
                     timestamp: Int
                 ) {
-                    bytesFlow.tryEmit(bytesOut)
-                    val bytesTmp = bytesOut
-                    bytesOut = bytesIn
-                    bytesIn = bytesTmp
+                    bytesFlow.tryEmit(bytesFront)
+                    val bytesTmp = bytesBack
+                    bytesBack = bytesFront
+                    bytesFront = bytesTmp
                     freenect.checkReturn(
-                        freenect_set_depth_buffer(dev, Pointer(bytesIn))
+                        freenect_set_depth_buffer(dev, Pointer(bytesFront))
                     )
                 }
             }
@@ -317,107 +244,89 @@ class Kinect1 : Kinect, Extension {
             override var enabled: Boolean
                 get() = enabledState.get()
                 set(value) {
-                    freenect.callBlocking("depthCameraEnable[$value]") { _, _ ->
+                    freenect.call("$info.enabled = $value") { _, _ ->
                         freenect.expectingEvents = value
                         if (enabledState.get() != value) {
-                            if (value) {
-                                start()
-                            } else {
-                                stop()
-                            }
+                            if (value) start() else stop()
                             enabledState.set(value)
                         }
                     }
                 }
 
-            private var flipHState: Boolean = false
-
-            override var depthMeasurement: DepthMeasurement =
-                DepthMeasurement.RAW_NORMALIZED
-
-            private fun Boolean.toFreenectFlagValue(): Int =
-                if (this) FREENECT_ON
-                else FREENECT_OFF
+            override var depthMeasurement: DepthMeasurement
+                get() = depthMappers.depthMeasurement
+                set(value) {
+                    logger.debug { "$info.depthMeasurement = $value" }
+                    depthMappers.depthMeasurement = value
+                    mutableCurrentFrame =
+                        if (value == DepthMeasurement.RAW) rawBuffer
+                        else processedFrameBuffer
+                }
 
             override var flipH: Boolean
-                get() = flipHState
+                get() = depthMappers.flipH
                 set(value) {
-                    freenect.call("setMirrorDepth") { _, _ ->
-                        freenect_set_flag(dev, FREENECT_MIRROR_DEPTH, value.toFreenectFlagValue())
-                        flipHState = value
-                    }
+                    logger.debug { "$info.flipH = $value" }
+                    depthMappers.flipH = value
                 }
 
             override var flipV: Boolean
-                get() = rawBuffer.flipV
+                get() = depthMappers.flipV
                 set(value) {
-                    rawBuffer.flipV = value
+                    logger.debug { "$info.flipV = $value" }
+                    depthMappers.flipV = value
                 }
 
             private fun start() {
-                logger.info { "Starting depth camera, device: $info" }
+                logger.info { "$info.start()" }
+                freenect_set_depth_callback(dev, freenectDepthCallback)
                 freenect.checkReturn(freenect_set_depth_mode(
                     dev, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_11BIT))
                 )
-                freenect.checkReturn(freenect_set_depth_buffer(dev, Pointer(bytesIn)))
+                freenect.checkReturn(freenect_set_depth_buffer(dev, Pointer(bytesFront)))
                 freenect.checkReturn(freenect_start_depth(dev))
-                Thread.sleep(depthCameraInitializationDelay) // here is the hack
-                freenect_set_depth_callback(dev, freenectDepthCallback)
-                if (flipHState) {
-                    freenect_set_flag(dev, FREENECT_MIRROR_DEPTH, FREENECT_ON)
-                }
             }
 
             private fun stop() {
-                logger.info { "Stopping depth camera, device: $info" }
+                logger.info { "$info.stop()" }
                 freenect.checkReturn(freenect_stop_depth(dev))
             }
 
-            internal fun shutdown() {
-                if (!enabled) {
-                    return
-                }
-                frameFlowChannel.close()
-            }
-
-            private fun verifyOnShutdown(ret: Int) {
-                if (ret != 0) {
-                    logger.error { "Unexpected return value while shutting down Kinect1 support: $ret" }
-                }
+            internal fun close() {
+                frameEmitterJob.cancel()
             }
 
         }
 
         override val depthCamera: V1DepthCamera = V1DepthCamera(
-            resolution = IntVector2(640, 480)
+            resolution = KINECT1_DEPTH_RESOLUTION
         )
 
         fun executeInFreenectDeviceContext(
             name: String,
             block: (ctx: freenect_context, usbCtx: freenect_usb_context, dev: freenect_device) -> Unit
         ) {
-            freenect.call(name) { ctx, usbCtx ->
+            freenect.call("$info: $name") { ctx, usbCtx ->
                 block(ctx, usbCtx, dev)
             }
         }
 
+        @Suppress("unused")
         fun <T> executeInFreenectDeviceContextBlocking(
             name: String,
             block: (ctx: freenect_context, usbCtx: freenect_usb_context, dev: freenect_device) -> T
-        ): T = freenect.callBlocking(name) { ctx, usbCtx ->
+        ): T = freenect.callBlocking("$info: $name") { ctx, usbCtx ->
             block(ctx, usbCtx, dev)
         }
 
         override fun close() {
-            logger.info { "Closing device: $info" }
+            logger.info { "$info.close()" }
             depthCamera.enabled = false
-            freenect.callBlocking("closeDevice") { _, _ ->
-                // TODO fix it
-                //frameFlowChannel.close()
-                //depthCamera.stop()
-                freenect.checkReturn(freenect_stop_depth(dev))
+            freenect.callBlocking("$info.closeDevice") { _, _ ->
                 freenect.checkReturn(freenect_close_device(dev))
+                mutableActiveDevices.remove(this)
             }
+            depthCamera.close()
         }
 
     }
@@ -436,30 +345,6 @@ class Freenect(initialLogLevel: Kinect1.LogLevel) {
     private var currentLogLevel = initialLogLevel
 
     private val logger = KotlinLogging.logger {}
-
-    private val nativeLogger = KotlinLogging.logger(logger.name + ".native")
-
-    val logAdapters = arrayOf<(message: String) -> Unit>(
-        { message -> nativeLogger.error(message) },
-        { message -> nativeLogger.warn(message) },
-        { message -> nativeLogger.info("NOTICE: $message") },
-        { message -> nativeLogger.info(message) },
-        { message -> nativeLogger.debug(message) },
-        { message -> nativeLogger.debug("SPEW: $message") },
-        { message -> nativeLogger.trace(message) }
-    )
-
-    private fun setUpLogging() {
-        freenect_set_log_callback(
-            ctx,
-            object : freenect_log_cb() {
-                override fun call(dev: freenect_context, level: Int, msg: BytePointer) {
-                    logAdapters[level].invoke(msg.string)
-                }
-            }
-        )
-        freenect_set_log_level(ctx, currentLogLevel.code)
-    }
 
     var logLevel: Kinect1.LogLevel
         get() = currentLogLevel
@@ -481,7 +366,6 @@ class Freenect(initialLogLevel: Kinect1.LogLevel) {
     private val runner = thread(name = "kinect1", start = true, isDaemon = true) {
         logger.info("Starting Kinect1 thread")
         checkReturn(freenect_init(ctx, usbCtx))
-        //setUpLogging()
         val num = checkReturn(freenect_num_devices(ctx))
         if (num == 0) {
             logger.warn { "Could not find any Kinect1 devices, calling openDevice() will throw exception" }
@@ -489,7 +373,7 @@ class Freenect(initialLogLevel: Kinect1.LogLevel) {
             val devices = listDevices()
             logger.info { "Kinect1 detected, device count: ${devices.size}" }
             devices.forEachIndexed { index, info ->
-                logger.info { "  |-[$index]: serialNumber: ${info.serialNumber}" }
+                logger.info { "  |-[$index]: ${info.serialNumber}" }
             }
         }
 
@@ -523,14 +407,14 @@ class Freenect(initialLogLevel: Kinect1.LogLevel) {
             usbCtx: freenect_usb_context
         ) -> Unit
     ) {
-        logger.debug { "call '$name' requested (non-blocking)" }
+        logger.debug { "'$name' requested (non-blocking)" }
         val task = FutureTask {
-            logger.trace { "call '$name': started" }
+            logger.trace { "'$name': started" }
             try {
                 block(ctx, usbCtx)
-                logger.trace { "call '$name': ended" }
+                logger.trace { "'$name': ended" }
             } catch (e: Exception) {
-                logger.error("call '$name': failed", e)
+                logger.error("'$name': failed", e)
             }
         }
         freenectCallQueue.add(task)
@@ -543,21 +427,21 @@ class Freenect(initialLogLevel: Kinect1.LogLevel) {
             usbCtx: freenect_usb_context
         ) -> T
     ): T {
-        logger.debug { "call '$name' requested (blocking)" }
+        logger.debug { "'$name' requested (blocking)" }
         val task = FutureTask {
-            logger.trace { "call '$name': started" }
+            logger.trace { "'$name': started" }
             try {
                 val result = block(ctx, usbCtx)
-                logger.trace { "call '$name': ended" }
+                logger.trace { "'$name': ended" }
                 Result.success(result)
             } catch (e: Exception) {
-                logger.error("call '$name': failed", e)
+                logger.error("'$name': failed", e)
                 Result.failure(e)
             }
         }
         freenectCallQueue.add(task)
         val result = task.get()
-        logger.debug { "call '$name': returned result" }
+        logger.trace { "'$name': returned result" }
         return result.getOrThrow()
     }
 
@@ -584,19 +468,10 @@ class Freenect(initialLogLevel: Kinect1.LogLevel) {
     }
 
     fun close() {
-        logger.debug("Closing kinect1 runner")
+        logger.debug("Closing Kinect1 runner")
         running = false
         logger.debug("Waiting for runner thread to finish")
         runner.join()
-    }
-
-    // TODO how to make it work?
-    private fun Set<Kinect1.SubDevice>.toFreenectExpression(): Int {
-        var value: Int = 0
-        this.forEach {
-            value = value or it.code
-        }
-        return value
     }
 
     fun checkReturn(ret: Int): Int =
@@ -604,5 +479,72 @@ class Freenect(initialLogLevel: Kinect1.LogLevel) {
         else {
             throw Kinect1Exception("Freenect error: ret=$ret")
         }
+
+}
+
+internal const val KINECT1_MAX_DEPTH_VALUE: Double = 2047.0
+
+internal val KINECT1_DEPTH_RESOLUTION: IntVector2 = IntVector2(640, 480)
+
+internal class Kinect1DepthMappers {
+
+    private var depthMeasurementState: DepthMeasurement = DepthMeasurement.RAW_NORMALIZED
+    private var flipHState: Boolean = false
+    private var flipVState: Boolean = false
+
+    private val depthToRawNormalized = depthToRawNormalizedMappers().apply {
+        forEach {
+            it.parameters["maxDepthValue"] = KINECT1_MAX_DEPTH_VALUE
+        }
+    }
+
+    private val depthToMeters = KinectDepthMappers(
+        "kinect1-depth-to-meters.frag",
+        Kinect1::class
+    )
+
+    var depthMeasurement: DepthMeasurement
+        get() = depthMeasurementState
+        set(value) {
+            depthMeasurementState = value
+            selectMapper()
+        }
+
+    var flipH: Boolean
+        get() = flipHState
+        set(value) {
+            flipHState = value
+            selectMapper()
+        }
+
+    var flipV: Boolean
+        get() = flipVState
+        set(value) {
+            flipVState = value
+            selectMapper()
+        }
+
+    var mapperState: Filter? = depthToRawNormalized.select(
+        flipH = false,
+        flipV = false
+    )
+    val mapper: Filter? get() = mapperState
+
+    fun update(resolution: IntVector2) {
+        depthToRawNormalized.update(resolution)
+        depthToMeters.update(resolution)
+    }
+
+    private fun selectMapper() {
+        mapperState = when (depthMeasurementState) {
+            DepthMeasurement.RAW -> null
+            DepthMeasurement.RAW_NORMALIZED -> {
+                depthToRawNormalized.select(flipHState, flipVState)
+            }
+            DepthMeasurement.METERS -> {
+                depthToMeters.select(flipHState, flipVState)
+            }
+        }
+    }
 
 }

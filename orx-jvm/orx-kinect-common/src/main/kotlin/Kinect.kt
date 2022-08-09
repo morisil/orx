@@ -21,7 +21,7 @@ interface Kinect {
     fun listDevices(): List<Device.Info>
 
     /**
-     * Starts kinect device of a given index.
+     * Opens kinect device of a given index.
      *
      * @param index the kinect device index (starts with 0). If no value specified,
      *          it will default to 0.
@@ -32,7 +32,7 @@ interface Kinect {
     fun openDevice(index: Int = 0): Device
 
     /**
-     * Starts kinect device of a given serial number.
+     * Opens kinect device of a given serial number.
      *
      * @param serialNumber the kinect device serialNumber.
      * @throws KinectException if device of such a serial number does not exist
