@@ -15,6 +15,5 @@ void main() {
     uv = ivec2(resolutionXMinus1 - uv.x, uv.y);
     #endif
     uint uintDepth = texelFetch(tex0, uv, 0).r;
-    float depth = float(uintDepth);
     outDepth = float(uintDepth) / maxDepthValue;
 }
