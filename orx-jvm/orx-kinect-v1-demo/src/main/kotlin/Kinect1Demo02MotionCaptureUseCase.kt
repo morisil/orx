@@ -101,9 +101,11 @@ fun main() = application {
                 }
 
         }
-        val gui = GUI()
-        gui.add(settings, label = "depth camera")
-        extend(gui)
+        extend(GUI()) {
+            persistState = false
+            compartmentsCollapsedByDefault = false
+            add(settings, label = "depth camera")
+        }
         extend {
             drawer.image(outputBuffer)
         }

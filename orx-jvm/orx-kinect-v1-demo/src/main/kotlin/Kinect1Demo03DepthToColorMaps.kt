@@ -52,7 +52,6 @@ fun main() = application {
         val grayscaleBuffer = outputBuffer()
         val zucconiBuffer = outputBuffer()
         val turboBuffer = outputBuffer()
-
         val settings = object {
 
             @BooleanParameter(label = "enabled", order = 0)
@@ -71,7 +70,6 @@ fun main() = application {
                 set(value) { camera.flipV = value }
 
         }
-
         launch {
             camera.frameFlow.collect { frame ->
                 grayscaleColormap.apply(frame, grayscaleBuffer)
@@ -79,21 +77,19 @@ fun main() = application {
                 turboColormap.apply(frame, turboBuffer)
             }
         }
-
-        val gui = GUI()
-        gui.add(settings, label = "depth camera")
-        gui.add(grayscaleColormap)
-        gui.add(spectralZucconiColormap)
-        gui.add(turboColormap)
-        extend(gui)
-
+        extend(GUI()) {
+            persistState = false
+            compartmentsCollapsedByDefault = false
+            add(settings, label = "depth camera")
+            add(grayscaleColormap)
+            add(spectralZucconiColormap)
+            add(turboColormap)
+        }
         extend {
             drawer.image(camera.currentFrame, guiOffset.toDouble(), 0.0)
             drawer.image(grayscaleBuffer, guiOffset + camera.resolution.x.toDouble(), 0.0)
             drawer.image(turboBuffer, guiOffset.toDouble(), camera.resolution.y.toDouble())
             drawer.image(zucconiBuffer, Vector2(guiOffset.toDouble(), 0.0) + camera.resolution.vector2)
         }
-
     }
-
 }
