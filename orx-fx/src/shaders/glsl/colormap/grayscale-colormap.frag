@@ -20,9 +20,9 @@ void main() {
     float red = texture2D(tex0, v_texCoord0).r;
     #endif
     float value = (red - minValue) / (maxValue - minValue);
-    value *= step(value, 1.);
-    value = pow(value, curve);
-    vec4 result = vec4(vec3(value), 1.);
+    vec3 color = vec3(pow(value, curve));
+    color *= step(value, 1.) * step(0., value);
+    vec4 result = vec4(color, 1.);
     #ifdef OR_GL_FRAGCOLOR
     gl_FragColor = result;
     #else
