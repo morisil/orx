@@ -37,6 +37,11 @@ enum class DepthMeasurement {
 interface DepthCamera {
 
     /**
+     * Unique id of this depth camera.
+     */
+    val id: String
+
+    /**
      * Current operating resolution.
      */
     val resolution: IntVector2
