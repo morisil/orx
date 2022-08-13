@@ -247,8 +247,6 @@ class Kinect1 : Kinect, Extension {
                 }
             }
 
-            override val id: String = "kinect1-${info.serialNumber}-depth"
-
             override var enabled: Boolean = false
                 set(value) {
                     logger.debug { "$info.enabled = $value" }
