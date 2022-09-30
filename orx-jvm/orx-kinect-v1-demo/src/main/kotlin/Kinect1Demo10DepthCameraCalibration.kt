@@ -6,13 +6,15 @@ import org.openrndr.draw.Filter
 import org.openrndr.draw.colorBuffer
 import org.openrndr.draw.filterShaderFromCode
 import org.openrndr.extra.depth.camera.DepthMeasurement
-import org.openrndr.extra.depth.camera.calibrator.DepthCameraCalibrator
+import org.openrndr.extra.depth.camera.calibrator.Calibrator
+import org.openrndr.extra.depth.camera.calibrator.ParametrizedDepthCameraCalibration
+import org.openrndr.extra.depth.camera.calibrator.image
 import org.openrndr.extra.depth.camera.calibrator.isolatedWithCalibration
 import org.openrndr.extra.gui.GUI
 import org.openrndr.extra.kinect.v1.Kinect1
 
 /**
- * How to use [DepthCameraCalibrator] with [Kinect1]?
+ * How to use [Calibrator] with [Kinect1]?
  */
 fun main() = application {
     configure {
@@ -37,10 +39,11 @@ fun main() = application {
         camera.onFrameReceived { frame ->
             spaceRangeExtractor.apply(frame, outputBuffer)
         }
-        val calibrator = DepthCameraCalibrator(this, camera)
+        val calibration = ParametrizedDepthCameraCalibration(camera)
+        val calibrator = Calibrator(calibration)
 
         val gui = GUI()
-        calibrator.addControlsTo(gui)
+        gui.add(calibration, label = "depth camera")
 
         /*
          Note: remember that extend(gui) has to be called after all the parameter
@@ -57,27 +60,14 @@ fun main() = application {
          */
         gui.visible = false
 
-        /*
-         Registering this callback here after gui will prevent it from
-         being triggered multiple times when GUI parameters are restored
-         on startup.
-         */
-        calibrator.onCalibrationChange { calibration ->
-            spaceRangeExtractor.minDepth = calibration.minDepth
-            spaceRangeExtractor.maxDepth = calibration.maxDepth
-        }
         extend(calibrator)
         camera.enabled = true
 
         extend {
-            val calibration = calibrator.getCalibration(camera)
+            spaceRangeExtractor.minDepth = calibration.minDepth
+            spaceRangeExtractor.maxDepth = calibration.maxDepth
             drawer.isolatedWithCalibration(calibration) {
-                image(
-                    colorBuffer = outputBuffer,
-                    position = calibration.position,
-                    width = calibration.width,
-                    height = calibration.height
-                )
+                image(outputBuffer, calibration)
             }
         }
 
