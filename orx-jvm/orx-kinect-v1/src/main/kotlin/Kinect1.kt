@@ -263,6 +263,9 @@ class Kinect1 : Kinect, Extension {
             override var depthMeasurement: DepthMeasurement
                 get() = depthMappers.depthMeasurement
                 set(value) {
+                    if (value == depthMappers.depthMeasurement) {
+                        return
+                    }
                     logger.debug { "$info.depthMeasurement = $value" }
                     depthMappers.depthMeasurement = value
                     mutableCurrentFrame =
@@ -273,6 +276,9 @@ class Kinect1 : Kinect, Extension {
             override var flipH: Boolean
                 get() = depthMappers.flipH
                 set(value) {
+                    if (value == depthMappers.flipH) {
+                        return
+                    }
                     logger.debug { "$info.flipH = $value" }
                     depthMappers.flipH = value
                 }
@@ -280,6 +286,9 @@ class Kinect1 : Kinect, Extension {
             override var flipV: Boolean
                 get() = depthMappers.flipV
                 set(value) {
+                    if (value == depthMappers.flipV) {
+                        return
+                    }
                     logger.debug { "$info.flipV = $value" }
                     depthMappers.flipV = value
                 }

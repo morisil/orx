@@ -6,10 +6,7 @@ import org.openrndr.draw.Filter
 import org.openrndr.draw.colorBuffer
 import org.openrndr.draw.filterShaderFromCode
 import org.openrndr.extra.depth.camera.DepthMeasurement
-import org.openrndr.extra.depth.camera.calibrator.Calibrator
-import org.openrndr.extra.depth.camera.calibrator.ParametrizedDepthCameraCalibration
-import org.openrndr.extra.depth.camera.calibrator.image
-import org.openrndr.extra.depth.camera.calibrator.isolatedWithCalibration
+import org.openrndr.extra.depth.camera.calibrator.*
 import org.openrndr.extra.gui.GUI
 import org.openrndr.extra.kinect.v1.Kinect1
 
@@ -27,11 +24,10 @@ fun main() = application {
         val camera = device.depthCamera
         // depth measurement in meters is required by the calibrator
         camera.depthMeasurement = DepthMeasurement.METERS
-        val kinectResolution = camera.resolution
 
         val outputBuffer = colorBuffer(
-            kinectResolution.x,
-            kinectResolution.y
+            width = camera.resolution.x,
+            height = camera.resolution.y
         )
 
         // simple visual effect applied to kinect data
@@ -39,8 +35,10 @@ fun main() = application {
         camera.onFrameReceived { frame ->
             spaceRangeExtractor.apply(frame, outputBuffer)
         }
-        val calibration = ParametrizedDepthCameraCalibration(camera)
-        val calibrator = Calibrator(calibration)
+        val calibration = parametrizedDepthCameraCalibration(
+            camera,
+            resolution(width, height)
+        )
 
         val gui = GUI()
         gui.add(calibration, label = "depth camera")
@@ -60,10 +58,14 @@ fun main() = application {
          */
         gui.visible = false
 
-        extend(calibrator)
+        val calibrator = extend(Calibrator(calibration)) {
+            tuningKeys = depthCameraTuningKeys
+        }
         camera.enabled = true
 
         extend {
+            camera.flipH = calibration.flipH
+            camera.flipV = calibration.flipV
             spaceRangeExtractor.minDepth = calibration.minDepth
             spaceRangeExtractor.maxDepth = calibration.maxDepth
             drawer.isolatedWithCalibration(calibration) {
