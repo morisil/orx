@@ -1,6 +1,6 @@
 # orx-image-fit
 
-Draws the given image making sure it fits (`contain`) or it covers (`cover`) the specified area.
+Draws an image ensuring it fits or covers the specified `Rectangle`.
 
 Similar to CSS object-fit (https://developer.mozilla.org/en-US/docs/Web/CSS/object-fit)
 
@@ -12,9 +12,9 @@ Similar to CSS object-fit (https://developer.mozilla.org/en-US/docs/Web/CSS/obje
 drawer.imageFit(
   img: ColorBuffer, 
   x: Double, y: Double, w: Double, h: Double, 
-  fitMethod: FitMethod, 
   horizontalPosition: Double, 
-  verticalPosition: Double)
+  verticalPosition: Double,
+  fitMethod: FitMethod)
 ```
 
 or 
@@ -23,9 +23,9 @@ or
 drawer.imageFit(
   img: ColorBuffer, 
   bounds: Rectangle, 
-  fitMethod: FitMethod, 
   horizontalPosition: Double, 
-  verticalPosition: Double)
+  verticalPosition: Double,
+  fitMethod: FitMethod)
 ```
 
 - `img`: the image to draw 
@@ -70,6 +70,6 @@ fun main() = application {
 <!-- __demos__ -->
 ## Demos
 ### DemoImageFit01
-[source code](src/demo/kotlin/DemoImageFit01.kt)
+[source code](src/jvmDemo/kotlin/DemoImageFit01.kt)
 
 ![DemoImageFit01Kt](https://raw.githubusercontent.com/openrndr/orx/media/orx-image-fit/images/DemoImageFit01Kt.png)

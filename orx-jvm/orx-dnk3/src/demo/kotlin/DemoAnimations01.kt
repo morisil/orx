@@ -19,12 +19,6 @@ fun main() = application {
     }
 
     program {
-        if (System.getProperty("takeScreenshot") == "true") {
-            extend(SingleScreenshot()) {
-                this.outputFile = System.getProperty("screenshotPath")
-            }
-        }
-
         val gltf = loadGltfFromFile(File("demo-data/gltf-models/box-animated/BoxAnimated.glb"))
         val scene = Scene(SceneNode())
 
@@ -51,7 +45,7 @@ fun main() = application {
             fov = 40.0
         }
         extend {
-            sceneData.animations[0].applyToTargets(seconds.mod_(sceneData.animations[0].duration))
+            sceneData.animations[0].applyToTargets(seconds.mod(sceneData.animations[0].duration))
             drawer.clear(ColorRGBa.PINK)
             renderer.draw(drawer, scene)
         }

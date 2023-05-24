@@ -1,6 +1,6 @@
 # orx-quadtree
 
-An extension for creating a [Quadtree](https://en.wikipedia.org/wiki/Quadtree) for points. A quadtree is a spatial
+A [Quadtree](https://en.wikipedia.org/wiki/Quadtree) is a spatial
 partioning tree structure meant to provide fast spatial queries such as nearest points within a range.
 
 ## Example
@@ -23,11 +23,11 @@ Ricardo Matias / [@ricardomatias](https://github.com/ricardomatias)
 <!-- __demos__ -->
 ## Demos
 ### DemoQuadTree01
-[source code](src/demo/kotlin/DemoQuadTree01.kt)
+[source code](src/jvmDemo/kotlin/DemoQuadTree01.kt)
 
 ![DemoQuadTree01Kt](https://raw.githubusercontent.com/openrndr/orx/media/orx-quadtree/images/DemoQuadTree01Kt.png)
 
 ### DemoQuadTree02
-[source code](src/demo/kotlin/DemoQuadTree02.kt)
+[source code](src/jvmDemo/kotlin/DemoQuadTree02.kt)
 
 ![DemoQuadTree02Kt](https://raw.githubusercontent.com/openrndr/orx/media/orx-quadtree/images/DemoQuadTree02Kt.png)

@@ -18,7 +18,7 @@ fun Any.listParameters(): List<Parameter> {
         !property.isConst &&
                 property is KMutableProperty1<*, *> &&
                 property.visibility == KVisibility.PUBLIC &&
-                property.annotations.map { it.annotationClass }.intersect(ParameterType.parameterAnnotationClasses).isNotEmpty()
+                property.annotations.map { it.annotationClass }.intersect(ParameterType.parameterAnnotationClasses.toSet()).isNotEmpty()
     }.map { property ->
         val annotations = property.annotations.filter { it.annotationClass in ParameterType.parameterAnnotationClasses }
         var intRange: IntRange? = null
@@ -31,6 +31,10 @@ fun Any.listParameters(): List<Parameter> {
         var vectorRange = Pair(Vector2(-1.0, -1.0), Vector2(1.0, 1.0))
         var invertY: Boolean? = null
         var showVector: Boolean? = null
+        var absolutePath: Boolean? = null
+        var pathContext: String? = null
+        var pathExtensions: Array<String>? = null
+        var pathIsDirectory: Boolean? = null
 
         for (it in annotations) {
             type = ParameterType.forParameterAnnotationClass(it)
@@ -95,8 +99,16 @@ fun Any.listParameters(): List<Parameter> {
                     label = it.label
                     order = it.order
                 }
+                is PathParameter -> {
+                    label = it.label
+                    absolutePath =  it.absolute
+                    pathContext = it.context
+                    pathExtensions = it.extensions
+                    pathIsDirectory = it.directory
+                }
             }
         }
+        @Suppress("UNCHECKED_CAST")
         Parameter(
             parameterType = type ?: error("no type"),
             property = property as KMutableProperty1<out Any, Any?>,
@@ -109,7 +121,12 @@ fun Any.listParameters(): List<Parameter> {
             precision = precision,
             showVector = showVector,
             invertY = invertY,
-            order = order
+            absolutePath = absolutePath,
+            pathContext =  pathContext,
+            pathExtensions = pathExtensions,
+            pathIsDirectory = pathIsDirectory,
+            order = order,
+
         )
     } + this::class.declaredMemberFunctions.filter {
         it.findAnnotation<ActionParameter>() != null
@@ -118,6 +135,7 @@ fun Any.listParameters(): List<Parameter> {
         val label = annotation.label
         val order = annotation.order
         val type = ParameterType.Action
+        @Suppress("UNCHECKED_CAST")
         Parameter(
             type,
             property = null,
@@ -130,6 +148,10 @@ fun Any.listParameters(): List<Parameter> {
             precision = null,
             showVector = null,
             invertY = null,
+            absolutePath = null,
+            pathContext = null,
+            pathExtensions = null,
+            pathIsDirectory = null,
             order = order
         )
     }).sortedBy { it.order }

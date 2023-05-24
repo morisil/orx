@@ -10,7 +10,7 @@ import org.openrndr.math.Vector3
 import org.openrndr.math.mod_
 import java.io.File
 
-suspend     fun main() = application {
+fun main() = application {
     configure {
         width = 1280
         height = 720
@@ -18,12 +18,6 @@ suspend     fun main() = application {
     }
 
     program {
-        if (System.getProperty("takeScreenshot") == "true") {
-            extend(SingleScreenshot()) {
-                this.outputFile = System.getProperty("screenshotPath")
-            }
-        }
-
         val gltf = loadGltfFromFile(File("demo-data/gltf-models/fox/Fox.glb"))
         val scene = Scene(SceneNode())
 
@@ -45,7 +39,7 @@ suspend     fun main() = application {
         }
 
         extend {
-            sceneData.animations[2].applyToTargets(seconds.mod_(sceneData.animations[2].duration))
+            sceneData.animations[2].applyToTargets(seconds.mod(sceneData.animations[2].duration))
             drawer.clear(ColorRGBa.PINK)
             renderer.draw(drawer, scene)
         }

@@ -1,35 +1,44 @@
 package org.openrndr.extra.convention
 
+import ScreenshotsHelper.collectScreenshots
 import org.gradle.accessors.dm.LibrariesForLibs
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import java.net.URI
 
 val libs = the<LibrariesForLibs>()
+
+val shouldPublish = project.name !in setOf("openrndr-demos")
 
 plugins {
     java
     kotlin("jvm")
-    id("maven-publish")
+    `maven-publish` apply false
     id("org.openrndr.extra.convention.component-metadata-rule")
     id("org.openrndr.extra.convention.dokka")
+    signing
 }
+if (shouldPublish) {
+    apply(plugin = "maven-publish")
+}
+
+//apply(plugin = "nebula.release")
 
 repositories {
     mavenCentral()
-    maven {
-        // This is needed to resolve `com.github.ricardomatias:delaunator`
-        url = URI("https://maven.openrndr.org")
-    }
     mavenLocal()
 }
 
 group = "org.openrndr.extra"
 
-val main by sourceSets.getting
+val main: SourceSet by sourceSets.getting
 
 @Suppress("UNUSED_VARIABLE")
-val demo by sourceSets.creating
+val demo: SourceSet by sourceSets.creating {
+    val skipDemos = setOf("openrndr-demos", "orx-minim", "orx-realsense2", "orx-runway", "orx-video-profiles", "orx-midi")
+    if (project.name !in skipDemos) {
+        collectScreenshots(project, this@creating) { }
+    }
+}
 
 dependencies {
     implementation(libs.kotlin.stdlib)
@@ -39,13 +48,11 @@ dependencies {
     "demoImplementation"(libs.openrndr.application)
     "demoImplementation"(libs.openrndr.extensions)
     "demoRuntimeOnly"(libs.openrndr.gl3.core)
+    "demoRuntimeOnly"(libs.slf4j.simple)
 }
 
 kotlin {
-    jvmToolchain {
-        this as JavaToolchainSpec
-        languageVersion.set(JavaLanguageVersion.of(libs.versions.jvmTarget.get()))
-    }
+    jvmToolchain(libs.versions.jvmTarget.get().toInt())
 }
 
 tasks {
@@ -65,5 +72,61 @@ tasks {
     withType<KotlinCompile>() {
         kotlinOptions.apiVersion = libs.versions.kotlinApi.get()
         kotlinOptions.languageVersion = libs.versions.kotlinLanguage.get()
+    }
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+val isReleaseVersion = !(version.toString()).endsWith("SNAPSHOT")
+
+if (shouldPublish) {
+    publishing {
+        publications {
+            create<MavenPublication>("maven") {
+                from(components["java"])
+                groupId = "org.openrndr.extra"
+                artifactId = project.name
+                description = project.name
+                versionMapping {
+                    allVariants {
+                        fromResolutionResult()
+                    }
+                }
+                pom {
+                    name.set(project.name)
+                    description.set(project.name)
+                    url.set("https://openrndr.org")
+                    developers {
+                        developer {
+                            id.set("edwinjakobs")
+                            name.set("Edwin Jakobs")
+                            email.set("edwin@openrndr.org")
+                        }
+                    }
+
+                    licenses {
+                        license {
+                            name.set("BSD-2-Clause")
+                            url.set("https://github.com/openrndr/orx/blob/master/LICENSE")
+                            distribution.set("repo")
+                        }
+                    }
+
+                    scm {
+                        connection.set("scm:git:git@github.com:openrndr/orx.git")
+                        developerConnection.set("scm:git:ssh://github.com/openrndr/orx.git")
+                        url.set("https://github.com/openrndr/orx")
+                    }
+                }
+            }
+        }
+    }
+
+    signing {
+        setRequired({ isReleaseVersion && gradle.taskGraph.hasTask("publish") })
+        sign(publishing.publications)
     }
 }

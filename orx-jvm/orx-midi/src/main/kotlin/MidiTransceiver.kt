@@ -1,7 +1,11 @@
 package org.openrndr.extra.midi
 
+import mu.KotlinLogging
+import org.openrndr.Program
 import org.openrndr.events.Event
 import javax.sound.midi.*
+
+private val logger = KotlinLogging.logger {  }
 
 data class MidiDeviceName(val name: String, val vendor: String)
 class MidiDeviceCapabilities {
@@ -50,18 +54,18 @@ data class MidiDeviceDescription(
         }
     }
 
-    fun open(): MidiTransceiver {
+    fun open(program: Program): MidiTransceiver {
         require(receive && transmit) {
             "device should be a receiver and transmitter"
         }
 
-        return MidiTransceiver.fromDeviceVendor(name, vendor)
+        return MidiTransceiver.fromDeviceVendor(program, name, vendor)
     }
 }
 
-class MidiTransceiver(val receiverDevice: MidiDevice, val transmitterDevicer: MidiDevice) {
+class MidiTransceiver(program: Program, val receiverDevice: MidiDevice?, val transmitterDevicer: MidiDevice?) {
     companion object {
-        fun fromDeviceVendor(name: String, vendor: String): MidiTransceiver {
+        fun fromDeviceVendor(program: Program, name: String, vendor: String? = null): MidiTransceiver {
             val infos = MidiSystem.getMidiDeviceInfo()
 
             var receiverDevice: MidiDevice? = null
@@ -71,12 +75,19 @@ class MidiTransceiver(val receiverDevice: MidiDevice, val transmitterDevicer: Mi
                 try {
                     val device = MidiSystem.getMidiDevice(info)
                     if (device !is Sequencer && device !is Synthesizer) {
-                        if (info.vendor == vendor && info.name == name) {
+                        if ((vendor == null || info.vendor == vendor) && info.name == name) {
+                            logger.info { "found matching device $name / $vendor" }
                             if (device.maxTransmitters != 0 && device.maxReceivers == 0) {
                                 transmitterDevice = device
+                                logger.debug {
+                                    "found transmitter"
+                                }
                             }
                             if (device.maxReceivers != 0 && device.maxTransmitters == 0) {
                                 receiverDevice = device
+                                logger.debug {
+                                     "found receiver"
+                                }
                             }
                         }
                     }
@@ -88,15 +99,15 @@ class MidiTransceiver(val receiverDevice: MidiDevice, val transmitterDevicer: Mi
             if (receiverDevice != null && transmitterDevice != null) {
                 receiverDevice.open()
                 transmitterDevice.open()
-                return MidiTransceiver(receiverDevice, transmitterDevice)
+                return MidiTransceiver(program, receiverDevice, transmitterDevice)
             } else {
-                throw IllegalArgumentException("midi device not found ${name}:${vendor} ${receiverDevice} ${transmitterDevice}")
+                throw IllegalArgumentException("midi device not found ${name}:${vendor} $receiverDevice $transmitterDevice")
             }
         }
     }
 
-    private val receiver = receiverDevice.receiver
-    private val transmitter = transmitterDevicer.transmitter
+    private val receiver = receiverDevice?.receiver
+    private val transmitter = transmitterDevicer?.transmitter
 
     private inner class Destroyer : Thread() {
         override fun run() {
@@ -105,7 +116,7 @@ class MidiTransceiver(val receiverDevice: MidiDevice, val transmitterDevicer: Mi
     }
 
     init {
-        transmitter.receiver = object : MidiDeviceReceiver {
+        transmitter?.receiver = object : MidiDeviceReceiver {
             override fun getMidiDevice(): MidiDevice? {
                 return null
             }
@@ -113,15 +124,27 @@ class MidiTransceiver(val receiverDevice: MidiDevice, val transmitterDevicer: Mi
             override fun send(message: MidiMessage, timeStamp: Long) {
                 val cmd = message.message
                 val channel = (cmd[0].toInt() and 0xff) and 0x0f
-                val status = (cmd[0].toInt() and 0xff) and 0xf0
-                when (status) {
-                    ShortMessage.NOTE_ON -> noteOn.trigger(
-                        MidiEvent.noteOn(
-                            channel,
-                            cmd[1].toInt() and 0xff,
-                            cmd[2].toInt() and 0xff
+                val velocity = cmd[2].toInt() and 0xff
+                when ((cmd[0].toInt() and 0xff) and 0xf0) {
+
+
+
+                    ShortMessage.NOTE_ON -> if (velocity > 0) {
+                        noteOn.trigger(
+                            MidiEvent.noteOn(
+                                channel,
+                                cmd[1].toInt() and 0xff,
+                                velocity
+                            )
                         )
-                    )
+                    } else {
+                        noteOff.trigger(
+                            MidiEvent.noteOff(
+                                channel,
+                                cmd[1].toInt() and 0xff
+                            )
+                        )
+                    }
 
                     ShortMessage.NOTE_OFF -> noteOff.trigger(
                         MidiEvent.noteOff(
@@ -171,8 +194,11 @@ class MidiTransceiver(val receiverDevice: MidiDevice, val transmitterDevicer: Mi
             }
         }
 
-        // shut down midi if user calls `exitProcess(0)`
-        Runtime.getRuntime().addShutdownHook(Destroyer())
+        val destroyer = Destroyer()
+        program.ended.listen {
+            destroyer.start()
+        }
+
     }
 
     val controlChanged = Event<MidiEvent>("midi-transceiver::controller-changed")
@@ -183,67 +209,89 @@ class MidiTransceiver(val receiverDevice: MidiDevice, val transmitterDevicer: Mi
     val pitchBend = Event<MidiEvent>("midi-transceiver::pitch-bend")
 
     fun controlChange(channel: Int, control: Int, value: Int) {
-        try {
-            val msg = ShortMessage(ShortMessage.CONTROL_CHANGE, channel, control, value)
-            receiver.send(msg, receiverDevice.microsecondPosition)
-        } catch (e: InvalidMidiDataException) {
-            //
+        if (receiver != null && receiverDevice != null) {
+            try {
+                val msg = ShortMessage(ShortMessage.CONTROL_CHANGE, channel, control, value)
+                receiver.send(msg, receiverDevice.microsecondPosition)
+            } catch (e: InvalidMidiDataException) {
+                logger.warn { e.message }
+            }
         }
     }
 
     fun programChange(channel: Int, program: Int) {
-        try {
-            val msg = ShortMessage(ShortMessage.PROGRAM_CHANGE, channel, program)
-            receiver.send(msg, receiverDevice.microsecondPosition)
-        } catch (e: InvalidMidiDataException) {
-            //
+        if (receiver != null && receiverDevice != null) {
+            try {
+                val msg = ShortMessage(ShortMessage.PROGRAM_CHANGE, channel, program)
+                receiver.send(msg, receiverDevice.microsecondPosition)
+            } catch (e: InvalidMidiDataException) {
+                logger.warn { e.message }
+            }
         }
     }
 
     fun noteOn(channel: Int, key: Int, velocity: Int) {
-        try {
-            val msg = ShortMessage(ShortMessage.NOTE_ON, channel, key, velocity)
-            receiver.send(msg, receiverDevice.microsecondPosition)
-        } catch (e: InvalidMidiDataException) {
-            //
+        if (receiver != null && receiverDevice != null) {
+            try {
+                val msg = ShortMessage(ShortMessage.NOTE_ON, channel, key, velocity)
+                receiver.send(msg, receiverDevice.microsecondPosition)
+            } catch (e: InvalidMidiDataException) {
+                logger.warn { e.message }
+            }
         }
     }
 
     fun channelPressure(channel: Int, value: Int) {
-        try {
-            val msg = ShortMessage(ShortMessage.CHANNEL_PRESSURE, channel, value)
-            receiver.send(msg, receiverDevice.microsecondPosition)
-        } catch (e: InvalidMidiDataException) {
-            //
+        if (receiver != null && receiverDevice != null) {
+            try {
+                val msg = ShortMessage(ShortMessage.CHANNEL_PRESSURE, channel, value)
+                receiver.send(msg, receiverDevice.microsecondPosition)
+            } catch (e: InvalidMidiDataException) {
+                logger.warn { e.message }
+            }
         }
     }
 
     fun pitchBend(channel: Int, value: Int) {
-        try {
-            val msg = ShortMessage(ShortMessage.PITCH_BEND, channel, value)
-            receiver.send(msg, receiverDevice.microsecondPosition)
-        } catch (e: InvalidMidiDataException) {
-            //
+        if (receiver != null && receiverDevice != null) {
+            try {
+                val msg = ShortMessage(ShortMessage.PITCH_BEND, channel, value)
+                receiver.send(msg, receiverDevice.microsecondPosition)
+            } catch (e: InvalidMidiDataException) {
+                logger.warn { e.message }
+            }
         }
     }
 
     fun destroy() {
-        receiverDevice.close()
-        transmitterDevicer.close()
+        receiverDevice?.close()
+        transmitterDevicer?.close()
     }
 }
 
-fun main() {
-    val deviceName = "BCR2000"
-    MidiDeviceDescription.list().forEach(::println)
-    MidiDeviceDescription.list().firstOrNull { it.name.contains(deviceName) }
-        ?.run {
-            val controller = MidiTransceiver.fromDeviceVendor(name, vendor)
-            controller.controlChanged.listen { println(it) }
-            controller.programChanged.listen { println(it) }
-            controller.noteOn.listen { println(it) }
-            controller.noteOff.listen { println(it) }
-            controller.channelPressure.listen { println(it) }
-            controller.pitchBend.listen { println(it) }
-        }
+/**
+ * List all available MIDI devices
+ * @since 0.4.3
+ */
+fun listMidiDevices() = MidiDeviceDescription.list()
+
+/**
+ * Open a MIDI device by name
+ * @param name the name of the MIDI device to open. Either the
+ * exact name or the first characters of the name.
+ * @since 0.4.3
+ */
+fun Program.openMidiDevice(name: String): MidiTransceiver {
+    val devices = listMidiDevices()
+
+    val matchingDevice = devices.firstOrNull {
+        // Existing device name matches `name`
+        it.name == name
+    } ?: devices.firstOrNull {
+        // Existing device name starts with `name`
+        it.name.startsWith(name)
+    }
+    val actualName = matchingDevice?.name ?: name
+
+    return MidiTransceiver.fromDeviceVendor(this, actualName)
 }

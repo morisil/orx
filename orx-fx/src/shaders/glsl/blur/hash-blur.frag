@@ -8,11 +8,13 @@ varying vec2 v_texCoord0;
 #endif
 
 uniform sampler2D tex0;
+uniform sampler2D tex1;
 uniform vec2 textureSize0;
 uniform float radius;
 uniform float time;
 uniform int samples;
 uniform float gain;
+uniform bool dynamic;
 
 #ifndef OR_GL_FRAGCOLOR
 out vec4 o_color;
@@ -37,18 +39,18 @@ vec2 sampleTexture(inout vec2 r) {
 
 //-------------------------------------------------------------------------------------------
 vec4 blur(vec2 uv, float radius) {
-	vec2 circle = vec2(radius) * (vec2(1.0) / textureSize0);
+	float r = radius;
+	if (dynamic) {
+		r *= texture(tex1, uv).r;
+	}
+
+	vec2 circle = vec2(r) * (vec2(1.0) / textureSize0);
 	vec2 random = hash22(uv + vec2(time));
 
 	vec4 acc = vec4(0.0);
 
-	for (int i = 0; i < 100; i++) {
-		if (i > samples) break;
-		#ifndef OR_GL_TEXTURE2D
+	for (int i = 0; i < samples; i++) {
 		acc += texture(tex0, uv + circle * sampleTexture(random));
-		#else
-		acc += texture2D(tex0, uv + circle * sampleTexture(random));
-		#endif
 	}
 	return acc / float(samples);
 }

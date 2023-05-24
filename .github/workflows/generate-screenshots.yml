@@ -17,22 +17,23 @@ jobs:
           path: ./orx
 
       - name: Validate Gradle wrapper
-        uses: gradle/wrapper-validation-action@v1.0.4
+        uses: gradle/wrapper-validation-action@v1.0.5
 
       - name: Checkout OPENRNDR repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 1
+          fetch-depth: 0
           repository: openrndr/openrndr
           path: ./openrndr
           ref: master
 
       - name: Test glxinfo
         run: |
+          sudo apt-get update
           sudo apt-get install -y mesa-utils xvfb
           xvfb-run glxinfo
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
@@ -40,7 +41,7 @@ jobs:
 
       - name: Build OPENRNDR
         working-directory: ./openrndr
-        run: ./gradlew publishToMavenLocal -Prelease.version=0.5.1-SNAPSHOT
+        run: ./gradlew publishToMavenLocal snapshot
 
       - name: Build ORX
         run: ./gradlew build

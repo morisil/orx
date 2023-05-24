@@ -23,8 +23,11 @@ include(
         "orx-compositor",
         "orx-compute-graph",
         "orx-compute-graph-nodes",
+        "orx-delegate-magic",
         "orx-jvm:orx-dnk3",
         "orx-easing",
+        "orx-envelopes",
+        "orx-jvm:orx-expression-evaluator",
         "orx-jvm:orx-file-watcher",
         "orx-parameters",
         "orx-fx",
@@ -47,9 +50,11 @@ include(
         "orx-no-clear",
         "orx-noise",
         "orx-obj-loader",
+        "orx-marching-squares",
         "orx-jvm:orx-olive",
         "orx-jvm:orx-osc",
         "orx-palette",
+        "orx-property-watchers",
         "orx-jvm:orx-panel",
         "orx-jvm:orx-poisson-fill",
         "orx-quadtree",
@@ -72,7 +77,7 @@ include(
         "orx-jvm:orx-tensorflow-natives-windows",
         "orx-timer",
         "orx-time-operators",
-        "orx-jvm:orx-triangulation",
+        "orx-triangulation",
         "orx-jvm:orx-kinect-common",
         "orx-jvm:orx-kinect-v1",
         "orx-jvm:orx-kinect-v1-natives-linux-arm64",
@@ -82,6 +87,8 @@ include(
         "orx-jvm:orx-kinect-v1-demo",
         "orx-jvm:orx-video-profiles",
         "orx-depth-camera",
-        "orx-jvm:orx-depth-camera-calibrator"
+        "orx-jvm:orx-depth-camera-calibrator",
+        "orx-view-box",
+        "orx-turtle"
     )
 )

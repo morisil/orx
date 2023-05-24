@@ -1,6 +1,6 @@
 # orx-camera
 
-3D camera controllable via mouse and keyboard.
+2D and 3D cameras controllable via mouse and keyboard.
 
 ## Usage
 
@@ -58,7 +58,17 @@ fun main() = application {
 * `Page Down` -  zoom out
 <!-- __demos__ -->
 ## Demos
-### DemoCamera2D
-[source code](src/demo/kotlin/DemoCamera2D.kt)
+### DemoCamera2D01
+[source code](src/jvmDemo/kotlin/DemoCamera2D01.kt)
 
-![DemoCamera2DKt](https://raw.githubusercontent.com/openrndr/orx/media/orx-camera/images/DemoCamera2DKt.png)
+![DemoCamera2D01Kt](https://raw.githubusercontent.com/openrndr/orx/media/orx-camera/images/DemoCamera2D01Kt.png)
+
+### DemoOrbitalCamera01
+[source code](src/jvmDemo/kotlin/DemoOrbitalCamera01.kt)
+
+![DemoOrbitalCamera01Kt](https://raw.githubusercontent.com/openrndr/orx/media/orx-camera/images/DemoOrbitalCamera01Kt.png)
+
+### DemoParametricOrbital01
+[source code](src/jvmDemo/kotlin/DemoParametricOrbital01.kt)
+
+![DemoParametricOrbital01Kt](https://raw.githubusercontent.com/openrndr/orx/media/orx-camera/images/DemoParametricOrbital01Kt.png)

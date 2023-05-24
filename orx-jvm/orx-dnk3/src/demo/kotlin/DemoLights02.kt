@@ -17,12 +17,6 @@ fun main() = application {
     }
 
     program {
-        if (System.getProperty("takeScreenshot") == "true") {
-            extend(SingleScreenshot()) {
-                this.outputFile = System.getProperty("screenshotPath")
-            }
-        }
-
         val gltf = loadGltfFromFile(File("demo-data/gltf-models/spot-light/Scene.glb"))
         val scene = Scene(SceneNode())
 
@@ -42,7 +36,7 @@ fun main() = application {
             camera.setView(Vector3(-0.514, -0.936, -1.122), Spherical(454.346, 25.0, 8.444), 40.0)
         }
         extend {
-            sceneData.animations[0].applyToTargets(seconds.mod_(sceneData.animations[0].duration))
+            sceneData.animations[0].applyToTargets(seconds.mod(sceneData.animations[0].duration))
             drawer.clear(ColorRGBa.PINK)
             renderer.draw(drawer, scene)
         }

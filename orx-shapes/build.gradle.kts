@@ -1,19 +1,9 @@
-import ScreenshotsHelper.collectScreenshots
-
 plugins {
     org.openrndr.extra.convention.`kotlin-multiplatform`
 }
 
 kotlin {
     jvm {
-        @Suppress("UNUSED_VARIABLE")
-        val demo by compilations.getting {
-            // TODO: Move demos to /jvmDemo
-            defaultSourceSet {
-                kotlin.srcDir("src/demo/kotlin")
-            }
-            collectScreenshots { }
-        }
         testRuns["test"].executionTask {
             useJUnitPlatform {
                 includeEngines("spek2")
@@ -38,10 +28,9 @@ kotlin {
         @Suppress("UNUSED_VARIABLE")
         val jvmMain by getting {
             dependencies {
-                implementation(project(":orx-jvm:orx-triangulation"))
+                implementation(project(":orx-triangulation"))
             }
         }
-
 
         @Suppress("UNUSED_VARIABLE")
         val jvmTest by getting {
@@ -58,7 +47,9 @@ kotlin {
             dependencies {
                 implementation(project(":orx-camera"))
                 implementation(project(":orx-color"))
-                implementation(project(":orx-jvm:orx-triangulation"))
+                implementation(project(":orx-triangulation"))
+                implementation(project(":orx-shapes"))
+                implementation(project(":orx-noise"))
             }
         }
     }

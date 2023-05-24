@@ -3,6 +3,7 @@ package org.openrndr.extra.temporalblur
 import org.intellij.lang.annotations.Language
 import org.openrndr.Extension
 import org.openrndr.Program
+import org.openrndr.ProgramImplementation
 import org.openrndr.color.ColorRGBa
 import org.openrndr.draw.*
 import org.openrndr.extra.noise.uniformRing
@@ -136,7 +137,7 @@ class TemporalBlur : Extension {
             }
         }
 
-        val resolvedContentScale = contentScale ?: 1.0
+        val resolvedContentScale = contentScale ?: RenderTarget.active.contentScale
 
         if (accumulator == null) {
             accumulator = renderTarget(program.width, program.height, contentScale = resolvedContentScale) {
@@ -179,7 +180,7 @@ class TemporalBlur : Extension {
             program.clock = { oldClockValue - (i * duration) / (fps * samples) }
 
             // I guess we need something better here.
-            val fsf = Program::class.java.getDeclaredField("frameSeconds")
+            val fsf = ProgramImplementation::class.java.getDeclaredField("frameSeconds")
             fsf.isAccessible = true
             fsf.setDouble(program, program.clock())
 
@@ -229,7 +230,7 @@ class TemporalBlur : Extension {
 
         // restore clock
         program.clock = oldClock
-        val fsf = Program::class.java.getDeclaredField("frameSeconds")
+        val fsf = ProgramImplementation::class.java.getDeclaredField("frameSeconds")
         fsf.isAccessible = true
         fsf.setDouble(program,  oldClockTime)
     }
@@ -238,6 +239,12 @@ class TemporalBlur : Extension {
         // -- we receive one last frame here
         image?.unbind()
         image!!.colorBuffer(0).copyTo(imageResolved!!.colorBuffer(0))
+
+        if (linearizeInput) {
+            imageResolved?.let {
+                linearize.apply(it.colorBuffer(0), it.colorBuffer(0))
+            }
+        }
 
         val activeColorMatrix = colorMatrix(0.0)
         if (activeColorMatrix !== Matrix55.IDENTITY) {

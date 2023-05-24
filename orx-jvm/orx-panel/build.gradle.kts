@@ -1,4 +1,3 @@
-import ScreenshotsHelper.collectScreenshots
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
@@ -15,12 +14,8 @@ tasks.test {
     }
 }
 
-sourceSets {
-    val demo by getting
-    collectScreenshots(project, demo) { }
-}
-
 dependencies {
+    implementation(project(":orx-jvm:orx-expression-evaluator"))
     implementation(libs.openrndr.application)
     implementation(libs.openrndr.math)
     implementation(libs.kotlin.coroutines)
