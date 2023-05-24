@@ -2,9 +2,7 @@ package org.openrndr.extra.kinect.v1.demo
 
 import org.openrndr.Fullscreen
 import org.openrndr.application
-import org.openrndr.draw.Filter
-import org.openrndr.draw.colorBuffer
-import org.openrndr.draw.filterShaderFromCode
+import org.openrndr.draw.*
 import org.openrndr.extra.depth.camera.DepthMeasurement
 import org.openrndr.extra.depth.camera.calibrator.*
 import org.openrndr.extra.gui.GUI
@@ -27,7 +25,9 @@ fun main() = application {
 
         val outputBuffer = colorBuffer(
             width = camera.resolution.x,
-            height = camera.resolution.y
+            height = camera.resolution.y,
+            format = ColorFormat.R,
+            type = ColorType.FLOAT16
         )
 
         // simple visual effect applied to kinect data
@@ -74,6 +74,7 @@ fun main() = application {
         }
 
         // switching calibrator view on and off with keyboard
+      // TODO why program here?
         program.keyboard.keyDown.listen {
             if (it.name == "k") {
                 calibrator.enabled = !calibrator.enabled

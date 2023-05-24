@@ -116,7 +116,7 @@ val depthCameraTuningKeys: (
 
 private const val CENTIMETER = .01
 
-fun depthCameraCalibrationRenderer(
+fun renderDepthCameraCalibration(
     camera: DepthCamera
 ) : (drawer: Drawer, calibration: DepthCameraCalibration) -> Unit {
 
