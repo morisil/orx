@@ -20,7 +20,7 @@ fun parametrizedDepthCameraCalibration(
 ) = ParametrizedDepthCameraCalibration(
     inputResolution = camera.resolution.vector2,
     outputResolution = outputResolution,
-    render = depthCameraCalibrationRenderer(camera) as (drawer: Drawer, calibration: Calibration) -> Unit
+    render = renderDepthCameraCalibration(camera) as (drawer: Drawer, calibration: Calibration) -> Unit
 )
 
 class ParametrizedDepthCameraCalibration(
