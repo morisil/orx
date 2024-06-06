@@ -11,7 +11,7 @@ enum class DepthMeasurement {
     /**
      * Raw values, but normalized to the range 0-1.
      * Useful for debugging, because full range of captured values can be rendered
-     * as a texture. Therefore it's a default setting.
+     * as a texture. Therefore, it's a default setting.
      */
     RAW_NORMALIZED,
 
@@ -69,4 +69,9 @@ interface DepthCamera {
      */
     fun onFrameReceived(block: (frame: ColorBuffer) -> Unit)
 
+    /*
+    val pointCloud: VertexBuffer
+
+    val spaceMesh: VertexBuffer
+    */
 }
