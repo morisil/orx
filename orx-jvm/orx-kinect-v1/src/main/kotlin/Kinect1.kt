@@ -13,8 +13,10 @@ import org.openrndr.extra.depth.camera.DepthMeasurement
 import org.openrndr.extra.kinect.*
 import org.openrndr.launch
 import org.openrndr.math.IntVector2
+import java.nio.ByteBuffer
 import java.util.*
 import java.util.concurrent.*
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 class Kinect1Exception(msg: String) : KinectException(msg)
@@ -32,6 +34,8 @@ class Kinect1 : Kinect, Extension {
      * this delay at all.
      */
     private var cameraInitializationDelay: Long = 100
+
+    private val drawThread by lazy { drawThread() }
 
     class DeviceInfo(
         override val serialNumber: String,
@@ -193,6 +197,18 @@ class Kinect1 : Kinect, Extension {
             override val resolution: IntVector2,
         ) : KinectDepthCamera {
 
+            private
+            private inline fun handleDepthData(buffer: ByteBuffer) {
+                drawThread.launch {
+                    renderDepthData(buffer)
+                }
+            }
+
+            private fun renderDepthData(buffer: ByteBuffer) {
+                rawBuffer.write(buffer)
+                depthMappers.mapper?.apply(rawBuffer, processedFrameBuffer)
+            }
+
             private var firstStart = true
             private var started = false
 
@@ -204,7 +220,7 @@ class Kinect1 : Kinect, Extension {
                 resolution.x,
                 resolution.y,
                 format = ColorFormat.R,
-                type = ColorType.UINT16_INT
+                type = ColorType.UINT16_INT  // TODO what if it is UINT32?
             ).also {
                 it.filter(MinifyingFilter.NEAREST, MagnifyingFilter.NEAREST)
             }
@@ -568,4 +584,35 @@ internal class Kinect1DepthMappers {
         }
     }
 
+}
+
+private interface Swappable {
+    fun swap()
+}
+
+private class SwappableResource<T>(a: T, b: T) : Swappable {
+    private val _frontRef = AtomicReference(a)
+    private val _backRef = AtomicReference(b)
+    val front: T get() = _frontRef.get()
+    val back: T get() = _backRef.get()
+    override fun swap() {
+        val temp = _frontRef.get()
+        _frontRef.set(_backRef.get())
+        _backRef.set(temp)
+    }
+}
+
+fun kinectBuffer(
+    resolution: IntVector2,
+) = colorBuffer(
+    resolution.x,
+    resolution.y,
+    format = ColorFormat.R,
+    type = ColorType.FLOAT16 // in the future we might want to choose the precision here
+).also {
+    it.filter(MinifyingFilter.LINEAR, MagnifyingFilter.LINEAR)
+}
+
+private class RenderChain {
+    val rawData: ByteBuffer = ByteBuffer()
 }
