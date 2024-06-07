@@ -615,4 +615,10 @@ fun kinectBuffer(
 
 private class RenderChain {
     val rawData: ByteBuffer = ByteBuffer()
+
+    fun render(disparityData: ByteBuffer) {
+
+    }
+
+
 }

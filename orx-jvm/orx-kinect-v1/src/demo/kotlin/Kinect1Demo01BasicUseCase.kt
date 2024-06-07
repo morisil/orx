@@ -15,10 +15,11 @@ fun main() = application {
     program {
         val kinect = extend(Kinect1())
         val device = kinect.openDevice()
-        device.depthCamera.flipH = true // to make a mirror
-        device.depthCamera.enabled = true
+        val depthCamera = device.depthCamera
+        depthCamera.flipH = true // to make a mirror
+        depthCamera.enabled = true
         extend {
-            drawer.image(device.depthCamera.currentFrame)
+            drawer.image(depthCamera.render.depthImage)
         }
     }
 }

@@ -8,6 +8,7 @@ import java.lang.RuntimeException
 import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.reflect.KClass
 
 /**
@@ -138,3 +139,4 @@ class KinectDepthMappers<T : Kinect>(resource: String, `class`: KClass<T>) {
 }
 
 fun depthToRawNormalizedMappers() = KinectDepthMappers("depth-to-raw-normalized.frag", Kinect::class)
+

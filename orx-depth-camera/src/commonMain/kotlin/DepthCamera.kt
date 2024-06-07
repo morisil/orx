@@ -1,7 +1,11 @@
 package org.openrndr.extra.depth.camera
 
+import kotlinx.coroutines.flow.Flow
 import org.openrndr.draw.ColorBuffer
+import org.openrndr.draw.VertexBuffer
 import org.openrndr.math.IntVector2
+import org.openrndr.math.Matrix44
+import org.openrndr.utils.buffer.MPPBuffer
 
 /**
  * Defines how pixel values encoded in depth [ColorBuffer] will be interpreted.
@@ -27,7 +31,7 @@ enum class DepthMeasurement {
      * It is using floating point numbers.
      * Note: values above `1.0` will not be visible if displayed as a texture.
      */
-    METERS,
+    METERS
 
 }
 
@@ -42,7 +46,7 @@ interface DepthCamera {
     val resolution: IntVector2
 
     /**
-     * The units/mapping in which depth is expressed on received frames.
+     * The units/mapping in which depth is expressed on [depthImage].
      */
     var depthMeasurement: DepthMeasurement
 
@@ -57,21 +61,53 @@ interface DepthCamera {
     var flipV: Boolean
 
     /**
-     * The most recent frame received from the depth camera.
+     * Min depth measured by
      */
-    val currentFrame: ColorBuffer
+    var minDepth: Double
+
+    var maxDepth: Double
+
+    var minX: Double
+
+    var maxX: Double
+
+    var minY: Double
+
+    var maxY: Double
+
+    var minZ: Double
+
+    var maxZ: Double
+
+    // TODO how to call it?
+    var transformationMatrix: Matrix44
+
+    val render: SpaceRender
+
+    val renders: Flow<SpaceRender>
 
     /**
-     * Will execute the supplied block of code with each most recent frame
-     * from the depth camera as an input.
+     * The flow of the most recent raw depth data received from the depth camera.
      *
-     * @param block the code to execute when the new frame is received.
+     * This information can be used to stream the data, for with OSC protocol.
      */
-    fun onFrameReceived(block: (frame: ColorBuffer) -> Unit)
+    val rawDepthData: Flow<MPPBuffer>
 
-    /*
+}
+
+interface SpaceRender {
+
+    /**
+     * The most recent depth image frame received from the [DepthCamera].
+     */
+    val depthImage: ColorBuffer
+
+    /**
+     * Point cloud vertex buffer.
+     */
     val pointCloud: VertexBuffer
 
     val spaceMesh: VertexBuffer
-    */
+
 }
+
