@@ -7,8 +7,8 @@ import org.openrndr.extra.computeshaders.resolution
 import org.openrndr.math.Vector2
 
 /**
- * Generates organized point clouds out of height maps where the layout of `XY` coordinates is preserved
- * in the layout of points in the cloud, and the `Z` coordinate is extruded.
+ * Generates organized point cloud out of height map. In an organized point cloud the layout of `XY` coordinates
+ * is preserved in the layout of points in the cloud, and the `Z` coordinate is extruded.
  */
 class HeightMapToPointCloudGenerator(
 
@@ -78,9 +78,9 @@ class HeightMapToPointCloudGenerator(
 }
 
 /**
- * Generates organized point clouds out of height maps and color information,
- * where the layout of `XY` coordinates is preserved in the layout of points in the cloud,
- * and additional `Z` coordinate is extruded.
+ * Generates organized point cloud out of height map and associated color image.
+ * In an organized point cloud the layout of `XY` coordinates is preserved in
+ * the layout of points in the cloud, and the `Z` coordinate is extruded.
  */
 class ColoredHeightMapToPointCloudGenerator(
 
