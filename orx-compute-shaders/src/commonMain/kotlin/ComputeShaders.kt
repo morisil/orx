@@ -37,6 +37,10 @@ fun String.appendAfterVersion(
     "${it.value}\n$string\n"
 }
 
+val IntVector2.resolutionSpec: String get() = "${x}x${y}"
+
+val ColorBuffer.resolutionSpec: String get() = resolution.resolutionSpec
+
 private fun workGroupDimension(
     size: Int,
     layout: Int

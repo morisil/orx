@@ -12,7 +12,7 @@ kotlin {
         }
         val commonTest by getting {
             dependencies {
-                api(libs.kotest.assertions)
+                api(libs.kluent)
             }
         }
         val jvmDemo by getting {
