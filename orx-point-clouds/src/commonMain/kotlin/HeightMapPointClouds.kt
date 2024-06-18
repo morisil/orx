@@ -4,10 +4,11 @@ import org.openrndr.draw.*
 import org.openrndr.draw.font.BufferAccess
 import org.openrndr.extra.computeshaders.appendAfterVersion
 import org.openrndr.extra.computeshaders.resolution
+import org.openrndr.extra.computeshaders.resolutionSpec
 import org.openrndr.math.Vector2
 
 /**
- * Generates organized point cloud out of height map. In an organized point cloud the layout of `XY` coordinates
+ * Generates an organized point cloud out of a height map. In an organized point cloud the layout of `XY` coordinates
  * is preserved in the layout of points in the cloud, and the `Z` coordinate is extruded.
  */
 class HeightMapToPointCloudGenerator(
@@ -78,7 +79,7 @@ class HeightMapToPointCloudGenerator(
 }
 
 /**
- * Generates organized point cloud out of height map and associated color image.
+ * Generates an organized point cloud out of a height map and associated color image.
  * In an organized point cloud the layout of `XY` coordinates is preserved in
  * the layout of points in the cloud, and the `Z` coordinate is extruded.
  */
@@ -113,6 +114,7 @@ class ColoredHeightMapToPointCloudGenerator(
         heightMap: ColorBuffer,
         colors: ColorBuffer,
     ) {
+
         shader.setUniforms(
             pointCloud,
             heightMap,
@@ -130,10 +132,44 @@ class ColoredHeightMapToPointCloudGenerator(
     fun generate(
         heightMap: ColorBuffer,
         colors: ColorBuffer,
-    ): VertexBuffer = coloredPointCloudVertexBuffer(
-        heightMap.resolution
-    ).also {
-        populate(it, heightMap, colors)
+    ): VertexBuffer {
+        checkSizeMatch(heightMap, colors)
+
+        val pointCloud = coloredPointCloudVertexBuffer(
+            heightMap.resolution
+        )
+
+        doPopulate(pointCloud, heightMap, colors)
+        return pointCloud
+    }
+
+    private fun doPopulate(
+        pointCloud: VertexBuffer,
+        heightMap: ColorBuffer,
+        colors: ColorBuffer,
+    ) {
+        shader.setUniforms(
+            pointCloud,
+            heightMap,
+            heightScale,
+            preserveProportions
+        )
+        shader.image(
+            "colors",
+            1,
+            colors.imageBinding(imageAccess = ImageAccess.READ)
+        )
+        shader.execute2D(heightMap.resolution)
+    }
+
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun checkSizeMatch(
+        heightMap: ColorBuffer,
+        colors: ColorBuffer
+    ) {
+        check(heightMap.resolution == colors.resolution) {
+            "Resolution mismatch between heightMap[${heightMap.resolutionSpec}] and colors[${colors.resolutionSpec}]"
+        }
     }
 
 }
@@ -146,19 +182,23 @@ private fun ComputeShader.setUniforms(
 ) {
     val resolution = heightMap.resolution
     val floatResolution = heightMap.resolution.vector2
-    val scale = Vector2(1.0, floatResolution.y / floatResolution.x)
-    val offset = Vector2(-.5, -scale.y * .5)
+
     uniform("resolution", resolution)
     uniform("floatResolution", floatResolution)
     uniform("heightScale", heightScale)
+
     if (preserveProportions) {
+        val scale = Vector2(1.0, floatResolution.y / floatResolution.x)
+        val offset = Vector2(-.5, -scale.y * .5)
         uniform("scale", scale)
         uniform("offset", offset)
     }
+
     image(
         "heightMap",
         0,
         heightMap.imageBinding(imageAccess = BufferAccess.READ)
     )
+
     buffer("pointCloud", pointCloud)
 }
