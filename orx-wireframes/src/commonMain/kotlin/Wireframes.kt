@@ -59,6 +59,9 @@ class PointCloudToWireframeGenerator(
     /**
      * Populates the [wireframe] based on the [pointCloud] data by connecting the points with the grid of lines.
      *
+     * Note: this function is intended for continuous writes of changing data to allocated point
+     * cloud [VertexBuffer]. For one time generation shortcut see [toWireframe].
+     *
      * @param pointCloud the point cloud to read organized point cloud from.
      * @param wireframe the wireframe buffer to write lines to.
      * @param resolution the resolution of organized point cloud kept in the [pointCloud].
