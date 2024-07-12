@@ -18,7 +18,6 @@ kotlin {
                 api(libs.openrndr.application)
                 api(libs.openrndr.math)
                 implementation(project(":orx-shapes"))
-                implementation(project(":orx-compute-shaders"))
             }
         }
         val jvmDemo by getting {
