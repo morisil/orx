@@ -3,7 +3,7 @@ import org.openrndr.draw.DrawPrimitive
 import org.openrndr.draw.loadImage
 import org.openrndr.draw.shadeStyle
 import org.openrndr.extra.camera.Orbital
-import org.openrndr.extra.pointclouds.ColoredHeightMapToPointCloudGenerator
+import org.openrndr.extra.pointclouds.toColoredHeightPointCloud
 import org.openrndr.math.Vector3
 
 /**
@@ -13,19 +13,16 @@ import org.openrndr.math.Vector3
  * as a continuous line according to the order of points.
  *
  * Note: using a vertex shader for putting points on the surface of a sphere is not the most efficient way of delivering
- * such an effect. Using a compute shader doing such a point placement directly would be more efficient.
+ * such an effect. Using a compute shader doing such a point placement directly would be faster.
  */
 fun main() = application {
     program {
         val earth = loadImage("demo-data/images/nasa-blue-marble.png")
         val heightMap = loadImage("demo-data/images/nasa-blue-marble-height-map.png")
-        val generator = ColoredHeightMapToPointCloudGenerator(
+        val pointCloud = heightMap.toColoredHeightPointCloud(
+            colors = earth,
             preserveProportions = false, // important to ease mapping of 0..1 ranges to spherical coordinates in radians
             heightScale = .1,
-        )
-        val pointCloud = generator.generate(
-            heightMap = heightMap,
-            colors = earth
         )
         val style = shadeStyle {
             vertexPreamble = "const float PI = 3.14159265359;"

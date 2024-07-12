@@ -2,7 +2,7 @@ import org.openrndr.application
 import org.openrndr.draw.DrawPrimitive
 import org.openrndr.draw.loadImage
 import org.openrndr.extra.camera.Orbital
-import org.openrndr.extra.pointclouds.HeightMapToPointCloudGenerator
+import org.openrndr.extra.pointclouds.toHeightPointCloud
 import org.openrndr.math.Vector3
 
 /**
@@ -11,7 +11,7 @@ import org.openrndr.math.Vector3
 fun main() = application {
     program {
         val heightMap = loadImage("demo-data/images/nasa-blue-marble-height-map.png")
-        val pointCloud = HeightMapToPointCloudGenerator(heightScale = .1).generate(heightMap)
+        val pointCloud = heightMap.toHeightPointCloud(heightScale = .1)
         extend(Orbital()) {
             eye = Vector3(0.03, 0.03, .3)
             lookAt = Vector3.ZERO

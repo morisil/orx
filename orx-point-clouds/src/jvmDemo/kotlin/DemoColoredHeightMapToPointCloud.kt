@@ -3,7 +3,7 @@ import org.openrndr.draw.DrawPrimitive
 import org.openrndr.draw.loadImage
 import org.openrndr.draw.shadeStyle
 import org.openrndr.extra.camera.Orbital
-import org.openrndr.extra.pointclouds.ColoredHeightMapToPointCloudGenerator
+import org.openrndr.extra.pointclouds.toColoredHeightPointCloud
 import org.openrndr.math.Vector3
 
 /**
@@ -14,10 +14,9 @@ fun main() = application {
     program {
         val heightMap = loadImage("demo-data/images/nasa-blue-marble-height-map.png")
         val earth = loadImage("demo-data/images/nasa-blue-marble.png")
-        val generator = ColoredHeightMapToPointCloudGenerator(heightScale = 0.1)
-        val pointCloud = generator.generate(
-            heightMap = heightMap,
-            colors = earth
+        val pointCloud = heightMap.toColoredHeightPointCloud(
+            colors = earth,
+            heightScale = 0.1
         )
         val style = shadeStyle {
             fragmentTransform = "x_fill.rgb = va_color.rgb;"
