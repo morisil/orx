@@ -213,7 +213,7 @@ class Kinect1 : Kinect, Extension {
                 resolution.x,
                 resolution.y,
                 format = ColorFormat.R,
-                type = ColorType.FLOAT16 // in the future we might want to choose the precision here
+                type = ColorType.FLOAT32
             ).also {
                 it.filter(MinifyingFilter.LINEAR, MagnifyingFilter.LINEAR)
             }
