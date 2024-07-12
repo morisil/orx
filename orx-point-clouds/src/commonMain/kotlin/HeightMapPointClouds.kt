@@ -2,54 +2,84 @@ package org.openrndr.extra.pointclouds
 
 import org.openrndr.draw.*
 import org.openrndr.draw.font.BufferAccess
-import org.openrndr.extra.computeshaders.appendAfterVersion
-import org.openrndr.extra.computeshaders.resolution
-import org.openrndr.extra.computeshaders.resolutionSpec
+import org.openrndr.math.IntVector3
 import org.openrndr.math.Vector2
 
 /**
- * Generates an organized point cloud out of a height map. In an organized point cloud the layout of `XY` coordinates
+ * Transforms this [ColorBuffer] storing a height map in the RED channel to organized point cloud.
+ *
+ * In an organized point cloud the layout of `XY` coordinates
  * is preserved in the layout of points in the cloud, and the `Z` coordinate is extruded.
+ *
+ * @param preserveProportions If `true` (default) it will preserve the original proportions of
+ *      the supplied height map image, centering the resulting point cloud
+ *      in point `[0, 0, 0]` and normalizing the width in the `-1..1` range. When set to `false`,
+ *      the `XY` coordinates of the resulting point cloud will be normalized in the `0..1` range.
+ * @param heightScale How much height should be expressed on the `Z`-axis.
+ * @return the point cloud.
+ * @see HeightMapToPointCloudGenerator.populate
+ * @see pointCloudVertexBuffer
+ */
+fun ColorBuffer.toHeightPointCloud(
+    preserveProportions: Boolean = true,
+    heightScale: Double = 1.0
+): VertexBuffer {
+    val pointCloud = pointCloudVertexBuffer(resolution)
+    HeightMapToPointCloudGenerator(
+        heightMapFormat = format,
+        heightMapType = type,
+        preserveProportions,
+        heightScale
+    ).use {
+        it.populate(heightMap = this, pointCloud)
+    }
+    return pointCloud
+}
+
+/**
+ * Generates an organized point cloud out of a height map.
+ *
+ * In an organized point cloud the layout of `XY` coordinates
+ * is preserved in the layout of points in the cloud, and the `Z` coordinate is extruded.
+ *
+ * @param heightMapFormat the color format of the height map.
+ * @param heightMapType the color type of the height map.
+ * @param preserveProportions If `true` (default) it will preserve the original proportions of
+ *      the supplied height map image, centering the resulting point cloud
+ *      in point `[0, 0, 0]` and normalizing the width in the `-1..1` range. When set to `false`,
+ *      the `XY` coordinates of the resulting point cloud will be normalized in the `0..1` range.
+ * @param heightScale How much height should be expressed on the `Z`-axis.
  */
 class HeightMapToPointCloudGenerator(
-
-    /**
-     * Preserves the original proportions of the supplied height map image, centering the resulting point cloud
-     * in point `[0, 0, 0]` and normalizing the width in the `-1..1` range (default).
-     * When set to `false`, the `XY` coordinates of the resulting point cloud will be normalized in the
-     * `0..1` range.
-     */
+    heightMapFormat: ColorFormat,
+    heightMapType: ColorType,
     private val preserveProportions: Boolean = true,
-
-    /**
-     * How much height should be expressed on the `Z`-axis.
-     */
     var heightScale: Double = 1.0
-) {
+) : AutoCloseable {
 
     private val shader = ComputeShader.fromCode(
-        code = pointclouds_height_map_to_point_cloud.appendAfterVersion(
-            """
-                ${if (preserveProportions) "#define PRESERVE_PROPORTIONS" else ""}
-            """.trimIndent()
-        ),
+        code = pointclouds_height_map_to_point_cloud
+            .replaceFirst("//defines", if (preserveProportions) "#define PRESERVE_PROPORTIONS" else "")
+            .replaceFirst("heightMapImageLayout", imageLayout(heightMapFormat, heightMapType)),
         name = "height-map-to-point-cloud"
     )
 
+    // should match the size defined in the shader
+    private val workGroupSize = IntVector3(16, 16, 1)
+
     /**
-     * Populates [VertexBuffer] with ordered point cloud data.
+     * Populates the [pointCloud] with the organized point cloud data stored in the [heightMap].
      *
      * Note: this function is intended for continuous writes of changing data to allocated point
-     * cloud [VertexBuffer]. For one time generation shortcut see [generate].
+     * cloud [VertexBuffer]. For one time generation shortcut see [toHeightPointCloud].
      *
-     * @param pointCloud the point cloud buffer to write to.
      * @param heightMap an image where the RED channel encodes height.
-     * @see generate
+     * @param pointCloud the point cloud buffer to write to.
      * @see pointCloudVertexBuffer
      */
     fun populate(
+        heightMap: ColorBuffer,
         pointCloud: VertexBuffer,
-        heightMap: ColorBuffer
     ) {
         shader.setUniforms(
             pointCloud,
@@ -57,119 +87,137 @@ class HeightMapToPointCloudGenerator(
             heightScale,
             preserveProportions
         )
-        shader.execute2D(heightMap.resolution)
+        shader.execute(
+            computeShader2DExecuteSize(workGroupSize, heightMap.resolution)
+        )
     }
 
-    /**
-     * Generates ordered point cloud and returns corresponding [VertexBuffer].
-     *
-     * @param heightMap an image where the RED channel encodes height.
-     * @return the generated point fo
-     * @see populate
-     * @see pointCloudVertexBuffer
-     */
-    fun generate(
-        heightMap: ColorBuffer,
-    ): VertexBuffer = pointCloudVertexBuffer(
-        heightMap.resolution
-    ).also {
-        populate(it, heightMap)
+    override fun close() {
+        shader.destroy()
     }
 
 }
 
 /**
- * Generates an organized point cloud out of a height map and associated color image.
- * In an organized point cloud the layout of `XY` coordinates is preserved in
- * the layout of points in the cloud, and the `Z` coordinate is extruded.
+ * Transforms this [ColorBuffer] storing a height map in the RED channel to organized point
+ * cloud with corresponding [colors].
+ *
+ * In an organized point cloud the layout of `XY` coordinates
+ * is preserved in the layout of points in the cloud, and the `Z` coordinate is extruded.
+ *
+ * @param colors the [ColorBuffer] of a matching resolution storing color information for each point.
+ * @param preserveProportions If `true` (default) it will preserve the original proportions of
+ *      the supplied height map image, centering the resulting point cloud
+ *      in point `[0, 0, 0]` and normalizing the width in the `-1..1` range. When set to `false`,
+ *      the `XY` coordinates of the resulting point cloud will be normalized in the `0..1` range.
+ * @param heightScale How much height should be expressed on the `Z`-axis.
+ * @return the point cloud.
+ * @throws IllegalArgumentException if the resolution of this height map and [colors] differ.
+ *
+ * @see ColoredHeightMapToPointCloudGenerator.populate
+ * @see coloredPointCloudVertexBuffer
+ */
+fun ColorBuffer.toColoredHeightPointCloud(
+    colors: ColorBuffer,
+    preserveProportions: Boolean = true,
+    heightScale: Double = 1.0
+): VertexBuffer {
+    val pointCloud = coloredPointCloudVertexBuffer(resolution)
+    ColoredHeightMapToPointCloudGenerator(
+        heightMapFormat = format,
+        heightMapType = type,
+        colorsFormat = colors.format,
+        colorsType = colors.type,
+        preserveProportions,
+        heightScale
+    ).use {
+        it.populate(heightMap = this, pointCloud, colors)
+    }
+    return pointCloud
+}
+
+/**
+ * Generates an organized point cloud out of a height map and color map.
+ *
+ * In an organized point cloud the layout of `XY` coordinates
+ * is preserved in the layout of points in the cloud, and the `Z` coordinate is extruded.
+ *
+ * @param heightMapFormat the color format of the height map.
+ * @param heightMapType the color type of the height map.
+ * @param colorsFormat the color format of the color map.
+ * @param colorsType the color type of the color map.
+ * @param preserveProportions If `true` (default) it will preserve the original proportions of
+ *      the supplied height map image, centering the resulting point cloud
+ *      in point `[0, 0, 0]` and normalizing the width in the `-1..1` range. When set to `false`,
+ *      the `XY` coordinates of the resulting point cloud will be normalized in the `0..1` range.
+ * @param heightScale How much height should be expressed on the `Z`-axis.
  */
 class ColoredHeightMapToPointCloudGenerator(
-
-    /**
-     * Preserves the original proportions of the supplied height map image, centering the resulting point cloud
-     * in point `[0, 0, 0]` and normalizing the width in the `-1..1` range (default).
-     * When set to `false`, the `XY` coordinates of the resulting point cloud will be normalized in the
-     * `0..1` range.
-     */
+    heightMapFormat: ColorFormat,
+    heightMapType: ColorType,
+    colorsFormat: ColorFormat,
+    colorsType: ColorType,
     val preserveProportions: Boolean = true,
-
-    /**
-     * How much height should be expressed on the `Z`-axis.
-     */
     var heightScale: Double = 1.0
-) {
+) : AutoCloseable {
 
     private val shader = ComputeShader.fromCode(
-        code = pointclouds_height_map_to_point_cloud.appendAfterVersion(
-            """
-                ${if (preserveProportions) "#define PRESERVE_PROPORTIONS" else ""}
-                #define COLORED
-            """.trimIndent()
+        code = pointclouds_height_map_to_point_cloud.replaceFirst(
+            "//defines",
+            "#define COLORED\n" +
+                    if (preserveProportions) "#define PRESERVE_PROPORTIONS" else ""
+        ).replaceFirst(
+            "heightMapImageLayout",
+            imageLayout(heightMapFormat, heightMapType)
+        ).replaceFirst(
+            "colorsImageLayout",
+            imageLayout(colorsFormat, colorsType)
         ),
         name = "colored-height-map-to-point-cloud"
     )
 
+    // should match the size defined in the shader
+    private val workGroupSize = IntVector3(16, 16, 1)
+
+    /**
+     * Populates the [pointCloud] with the organized point cloud data stored in the [heightMap] together with
+     * corresponding [colors].
+     *
+     * Note: this function is intended for continuous writes of changing data to allocated point
+     * cloud [VertexBuffer]. For one time generation shortcut see [toColoredHeightPointCloud].
+     *
+     * @param heightMap an image where the RED channel encodes height.
+     * @param pointCloud the point cloud buffer to write to.
+     * @param colors the colors to apply to corresponding points.
+     * @throws IllegalArgumentException if the resolution of the [heightMap] and [colors] differ.
+     *
+     * @see coloredPointCloudVertexBuffer
+     */
     fun populate(
+        heightMap: ColorBuffer,
         pointCloud: VertexBuffer,
-        heightMap: ColorBuffer,
-        colors: ColorBuffer,
-    ) {
-
-        shader.setUniforms(
-            pointCloud,
-            heightMap,
-            heightScale,
-            preserveProportions
-        )
-        shader.image(
-            "colors",
-            1,
-            colors.imageBinding(imageAccess = ImageAccess.READ)
-        )
-        shader.execute2D(heightMap.resolution)
-    }
-
-    fun generate(
-        heightMap: ColorBuffer,
-        colors: ColorBuffer,
-    ): VertexBuffer {
-        checkSizeMatch(heightMap, colors)
-
-        val pointCloud = coloredPointCloudVertexBuffer(
-            heightMap.resolution
-        )
-
-        doPopulate(pointCloud, heightMap, colors)
-        return pointCloud
-    }
-
-    private fun doPopulate(
-        pointCloud: VertexBuffer,
-        heightMap: ColorBuffer,
-        colors: ColorBuffer,
-    ) {
-        shader.setUniforms(
-            pointCloud,
-            heightMap,
-            heightScale,
-            preserveProportions
-        )
-        shader.image(
-            "colors",
-            1,
-            colors.imageBinding(imageAccess = ImageAccess.READ)
-        )
-        shader.execute2D(heightMap.resolution)
-    }
-
-    @Suppress("NOTHING_TO_INLINE")
-    private inline fun checkSizeMatch(
-        heightMap: ColorBuffer,
         colors: ColorBuffer
     ) {
-        check(heightMap.resolution == colors.resolution) {
-            "Resolution mismatch between heightMap[${heightMap.resolutionSpec}] and colors[${colors.resolutionSpec}]"
+        heightMap.requireColorsResolutionMatch(colors, "heightMap")
+        shader.run {
+            setUniforms(
+                pointCloud,
+                heightMap,
+                heightScale,
+                preserveProportions
+            )
+            image(
+                "colors",
+                1,
+                colors.imageBinding(imageAccess = ImageAccess.READ)
+            )
+            execute(computeShader2DExecuteSize(workGroupSize, heightMap.resolution))
         }
+
+    }
+
+    override fun close() {
+        shader.destroy()
     }
 
 }
