@@ -95,7 +95,6 @@ include(
         "orx-view-box",
         "orx-text-writer",
         "orx-turtle",
-        "orx-compute-shaders",
         "orx-point-clouds",
         "orx-wireframes"
     )
