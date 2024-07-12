@@ -1,90 +1,100 @@
 package org.openrndr.extra.meshgenerators
 
 import org.openrndr.draw.*
-import org.openrndr.extra.computeshaders.appendAfterVersion
-import org.openrndr.extra.computeshaders.computeShaderExecuteDimensions
 import org.openrndr.math.IntVector2
+import org.openrndr.math.IntVector3
 
 /**
- * Generates mesh out of supplied point cloud.
+ * Creates mesh out of this [VertexBuffer] representing an organized point cloud.
+ *
+ * @param resolution the resolution of the organized point cloud in this buffer.
  */
-class PointCloudToMeshGenerator {
-
-    private val shader = ComputeShader.fromCode(
-        code = meshgenerators_point_cloud_to_mesh,
-        name = "point-cloud-to-mesh"
-    )
-
-    fun populate(
-        mesh: VertexBuffer,
-        pointCloud: VertexBuffer,
-        resolution: IntVector2
-    ) {
-        shader.setUniforms(
-            mesh,
-            pointCloud,
-            resolution
-        )
-        shader.execute2D(resolution)
+fun VertexBuffer.toMesh(
+    resolution: IntVector2
+): VertexBuffer {
+    val mesh = meshVertexBuffer(resolution)
+    PointCloudToMeshGenerator().use {
+        it.populate(pointCloud = this, mesh, resolution)
     }
-
-    fun generate(
-        pointCloud: VertexBuffer,
-        resolution: IntVector2
-    ): VertexBuffer = meshVertexBuffer(
-        resolution
-    ).also {
-        populate(it, pointCloud, resolution)
-    }
-
+    return mesh
 }
 
 /**
- * Generates colored mesh out of supplied colored point cloud.
+ * Creates colored mesh out of this [VertexBuffer] representing an organized point cloud.
+ *
+ * @param resolution the resolution of the organized point cloud in this buffer.
  */
-class ColoredPointCloudToMeshGenerator {
+fun VertexBuffer.toColoredMesh(
+    resolution: IntVector2
+): VertexBuffer {
+    val mesh = coloredMeshVertexBuffer(resolution)
+    PointCloudToMeshGenerator(colored = true).use {
+        it.populate(pointCloud = this, mesh, resolution)
+    }
+    return mesh
+}
+
+/**
+ * Calculates a mesh out of the supplied organized point cloud.
+ *
+ * @param colored `true` if the color information should be applied to vertices,
+ *      `false` otherwise (default).
+ */
+class PointCloudToMeshGenerator(
+    colored: Boolean = false
+) : AutoCloseable {
 
     private val shader = ComputeShader.fromCode(
-        code = meshgenerators_point_cloud_to_mesh.appendAfterVersion(
-            "#define COLORED"
-        ),
-        name = "colored-point-cloud-to-mesh"
+        code = meshgenerators_point_cloud_to_mesh
+            .replaceFirst(
+                "//defines",
+                if (colored) "#define COLORED" else ""
+            ),
+        name = "point-cloud-to-mesh"
     )
 
+    // should match the size defined in the shader
+    private val workGroupSize = IntVector3(16, 16, 1)
+
+    /**
+     * Calculates the [mesh] out of the organized [pointCloud].
+     *
+     * @param pointCloud the point cloud buffer.
+     * @param mesh the mesh buffer.
+     * @param resolution the resolution of the organized point cloud data.
+     */
     fun populate(
-        mesh: VertexBuffer,
         pointCloud: VertexBuffer,
+        mesh: VertexBuffer,
         resolution: IntVector2
     ) {
-        shader.setUniforms(
-            mesh,
-            pointCloud,
-            resolution
-        )
-        shader.execute2D(resolution)
+        shader.run {
+            uniform("resolution", resolution)
+            uniform("resolutionMinus1", resolution - IntVector2.ONE)
+            buffer("pointCloud", pointCloud)
+            buffer("mesh", mesh)
+            execute(
+                computeShader2DExecuteSize(workGroupSize, resolution)
+            )
+        }
     }
 
-    fun generate(
-        pointCloud: VertexBuffer,
-        resolution: IntVector2
-    ): VertexBuffer = coloredMeshVertexBuffer(
-        resolution
-    ).also {
-        populate(it, pointCloud, resolution)
+    override fun close() {
+        shader.destroy()
     }
 
 }
 
 val meshVertexFormat: VertexFormat = vertexFormat {
     position(dimensions = 3)
-    padding(4)
+    attribute("weight", VertexElementType.FLOAT32)
     normal(dimensions = 3)
     padding(4)
 }
 
 val coloredMeshVertexFormat: VertexFormat = vertexFormat {
     position(dimensions = 3)
-    padding(4)
+    attribute("weight", VertexElementType.FLOAT32)
     normal(dimensions = 3)
     padding(4)
     color(dimensions = 4)
@@ -103,24 +113,3 @@ fun coloredMeshVertexBuffer(
     coloredMeshVertexFormat,
     vertexCount = (resolution.x - 1) * (resolution.y - 1) * 6
 )
-
-private fun ComputeShader.setUniforms(
-    mesh: VertexBuffer,
-    pointCloud: VertexBuffer,
-    resolution: IntVector2
-) {
-    uniform("resolution", resolution)
-    uniform("resolutionMinus1", resolution - IntVector2(1, 1)) // TODO replace with IntVector2.ONE once it is in OPENRNDR
-    buffer("pointCloud", pointCloud)
-    buffer("mesh", mesh)
-}
-
-private fun ComputeShader.execute2D(resolution: IntVector2) {
-    execute(
-        computeShaderExecuteDimensions(
-            resolution,
-            localSizeX = 8,
-            localSizeY = 8
-        )
-    )
-}

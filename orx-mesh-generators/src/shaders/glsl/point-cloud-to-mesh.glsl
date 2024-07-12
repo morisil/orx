@@ -1,10 +1,9 @@
 #version 430
-
-layout (local_size_x = 8, local_size_y = 8) in;
+//defines
+layout(local_size_x = 16, local_size_y = 16) in;
 
 uniform ivec2 resolution;
 uniform ivec2 resolutionMinus1;
-uniform vec3 eye;
 
 struct Point {
     vec3 position;
@@ -16,19 +15,21 @@ struct Point {
 
 struct Vertex {
     vec3 position;
+    float weight;
     vec3 normal;
+    float pad;
     #ifdef COLORED
     vec4 color;
     #endif
 };
 
 // input buffer for world positions
-layout (binding = 0) buffer pointCloud {
+layout(std430, binding = 0) readonly restrict buffer pointCloud {
     Point points[];
 };
 
 // output buffer for vertex positions
-layout (binding = 1) buffer mesh {
+layout(std430, binding = 1) writeonly restrict buffer mesh {
     Vertex vertices[];
 };
 
@@ -55,16 +56,19 @@ void main() {
     vec3 normal1 = calculateNormal(p0.position, p1.position, p3.position);
 
     vertices[base + 0].position = p0.position;
+    vertices[base + 0].weight = p0.size;
     vertices[base + 0].normal = normal1;
     #ifdef COLORED
     vertices[base + 0].color = p0.color;
     #endif
     vertices[base + 1].position = p1.position;
+    vertices[base + 1].weight = p1.size;
     vertices[base + 1].normal = normal1;
     #ifdef COLORED
     vertices[base + 1].color = p1.color;
     #endif
     vertices[base + 2].position = p3.position;
+    vertices[base + 2].weight = p3.size;
     vertices[base + 2].normal = normal1;
     #ifdef COLORED
     vertices[base + 2].color = p3.color;
@@ -73,16 +77,19 @@ void main() {
     vec3 normal2 = calculateNormal(p1.position, p2.position, p3.position);
 
     vertices[base + 3].position = p1.position;
+    vertices[base + 3].weight = p1.size;
     vertices[base + 3].normal = normal2;
     #ifdef COLORED
     vertices[base + 3].color = p1.color;
     #endif
     vertices[base + 4].position = p2.position;
+    vertices[base + 4].weight = p2.size;
     vertices[base + 4].normal = normal2;
     #ifdef COLORED
     vertices[base + 4].color = p2.color;
     #endif
     vertices[base + 5].position = p3.position;
+    vertices[base + 5].weight = p3.size;
     vertices[base + 5].normal = normal2;
     #ifdef COLORED
     vertices[base + 5].color = p3.color;
