@@ -4,9 +4,9 @@ import org.openrndr.draw.DrawPrimitive
 import org.openrndr.draw.loadImage
 import org.openrndr.draw.shadeStyle
 import org.openrndr.extra.camera.Orbital
-import org.openrndr.extra.computeshaders.resolution
-import org.openrndr.extra.meshgenerators.PointCloudToMeshGenerator
-import org.openrndr.extra.pointclouds.HeightMapToPointCloudGenerator
+import org.openrndr.extra.meshgenerators.toMesh
+import org.openrndr.extra.pointclouds.resolution
+import org.openrndr.extra.pointclouds.toHeightPointCloud
 import org.openrndr.math.Vector3
 import kotlin.math.cos
 import kotlin.math.sin
@@ -20,12 +20,9 @@ fun main() = application {
     }
     program {
         val heightMap = loadImage("demo-data/images/nasa-blue-marble-height-map.png")
-        val resolution = heightMap.resolution
-        val pointCloud = HeightMapToPointCloudGenerator(
-            heightScale = .02
-        ).generate(heightMap)
-        val meshGenerator = PointCloudToMeshGenerator()
-        val mesh = meshGenerator.generate(pointCloud, resolution)
+        val mesh = heightMap
+            .toHeightPointCloud(heightScale = .02)
+            .toMesh(heightMap.resolution)
         val style = shadeStyle {
             fragmentTransform = """
                 vec3 lightDir = normalize(p_lightPosition);
@@ -40,13 +37,12 @@ fun main() = application {
             keySpeed = .01
         }
         extend {
+            drawer.shadeStyle = style
             style.parameter("lightPosition", Vector3(
                 sin(seconds) * 1.0,
                 cos(seconds) * 1.0,
                 1.0)
             )
-            style.parameter("seconds", seconds)
-            drawer.shadeStyle = style
             drawer.vertexBuffer(mesh, DrawPrimitive.TRIANGLES)
         }
     }
