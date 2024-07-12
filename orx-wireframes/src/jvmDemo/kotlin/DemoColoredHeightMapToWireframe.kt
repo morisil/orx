@@ -4,9 +4,9 @@ import org.openrndr.draw.DrawPrimitive
 import org.openrndr.draw.loadImage
 import org.openrndr.draw.shadeStyle
 import org.openrndr.extra.camera.Orbital
-import org.openrndr.extra.computeshaders.resolution
-import org.openrndr.extra.pointclouds.ColoredHeightMapToPointCloudGenerator
-import org.openrndr.extra.wireframes.ColoredPointCloudToWireframeGenerator
+import org.openrndr.extra.pointclouds.resolution
+import org.openrndr.extra.pointclouds.toColoredHeightPointCloud
+import org.openrndr.extra.wireframes.toColoredWireframe
 import org.openrndr.math.Vector3
 
 /**
@@ -19,15 +19,12 @@ fun main() = application {
     program {
         val heightMap = loadImage("demo-data/images/nasa-blue-marble-height-map.png")
         val earth = loadImage("demo-data/images/nasa-blue-marble.png")
-        val resolution = heightMap.resolution
-        val pointCloud = ColoredHeightMapToPointCloudGenerator(
-            heightScale = .05
-        ).generate(
-            heightMap,
-            colors = earth
-        )
-        val wireFrameGenerator = ColoredPointCloudToWireframeGenerator()
-        val wireFrame = wireFrameGenerator.generate(pointCloud, resolution)
+        val wireframe = heightMap
+            .toColoredHeightPointCloud(
+                colors = earth,
+                heightScale = .05
+            )
+            .toColoredWireframe(heightMap.resolution)
         val style = shadeStyle {
             fragmentTransform = "x_fill.rgb = va_color.rgb;"
         }
@@ -39,7 +36,7 @@ fun main() = application {
         }
         extend {
             drawer.shadeStyle = style
-            drawer.vertexBuffer(wireFrame, DrawPrimitive.LINES)
+            drawer.vertexBuffer(wireframe, DrawPrimitive.LINES)
         }
     }
 }

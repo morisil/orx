@@ -5,9 +5,9 @@ import org.openrndr.draw.BlendMode
 import org.openrndr.draw.DrawPrimitive
 import org.openrndr.draw.loadImage
 import org.openrndr.extra.camera.Orbital
-import org.openrndr.extra.computeshaders.resolution
-import org.openrndr.extra.pointclouds.HeightMapToPointCloudGenerator
-import org.openrndr.extra.wireframes.PointCloudToWireframeGenerator
+import org.openrndr.extra.pointclouds.resolution
+import org.openrndr.extra.pointclouds.toHeightPointCloud
+import org.openrndr.extra.wireframes.toWireframe
 import org.openrndr.math.Vector3
 
 /**
@@ -19,14 +19,11 @@ fun main() = application {
     }
     program {
         val heightMap = loadImage("demo-data/images/nasa-blue-marble-height-map.png")
-        val pointCloud = HeightMapToPointCloudGenerator(
-            heightScale = .1
-        ).generate(heightMap)
-        val wireFrameGenerator = PointCloudToWireframeGenerator()
-        val wireFrame = wireFrameGenerator.generate(
-            pointCloud,
-            heightMap.resolution
-        )
+        val wireframe = heightMap
+            .toHeightPointCloud(
+                heightScale = .5
+            )
+            .toWireframe(heightMap.resolution)
         extend(Orbital()) {
             eye = Vector3(0.03, 0.03, .3)
             lookAt = Vector3.ZERO
@@ -37,7 +34,7 @@ fun main() = application {
             drawer.fill = ColorRGBa.WHITE.opacify(.1)
             drawer.depthWrite = false
             drawer.drawStyle.blendMode = BlendMode.ADD
-            drawer.vertexBuffer(wireFrame, DrawPrimitive.LINES)
+            drawer.vertexBuffer(wireframe, DrawPrimitive.LINES)
         }
     }
 }

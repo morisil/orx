@@ -1,6 +1,6 @@
 #version 430
-
-layout (local_size_x = 8, local_size_y = 8) in;
+//defines
+layout (local_size_x = 16, local_size_y = 16) in;
 
 uniform ivec2 resolution;
 uniform ivec2 resolutionMinus1;
@@ -18,11 +18,11 @@ struct Line {
     Point end;
 };
 
-layout(binding = 1) buffer pointCloud {
+layout(std430, binding = 1) readonly restrict buffer pointCloud {
     Point points[];
 };
 
-layout (binding = 2) buffer wireframe {
+layout (std430, binding = 2) writeonly restrict buffer wireframe {
     Line lines[];
 };
 
