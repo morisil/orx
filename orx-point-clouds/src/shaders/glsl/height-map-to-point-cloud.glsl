@@ -1,13 +1,13 @@
 #version 430
-
-layout (local_size_x = 8, local_size_y = 8) in;
+//defines
+layout (local_size_x = 16, local_size_y = 16) in;
 
 uniform ivec2 resolution;
 uniform vec2 floatResolution;
 
-layout(rgba8, binding = 0) uniform readonly image2D heightMap;
+layout(heightMapImageLayout) uniform readonly restrict image2D heightMap;
 #ifdef COLORED
-layout(rgba8, binding = 1) uniform readonly image2D colors;
+layout(colorsImageLayout) uniform readonly restrict image2D colors;
 #endif
 
 uniform float heightScale;
@@ -25,7 +25,7 @@ struct Point {
     #endif
 };
 
-layout(binding = 2) buffer pointCloud {
+layout(std430) writeonly restrict buffer pointCloud {
     Point points[];
 };
 
