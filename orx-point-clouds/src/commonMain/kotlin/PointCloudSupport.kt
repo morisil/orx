@@ -54,7 +54,7 @@ private val imageLayoutMap = mapOf(
 )
 
 @Suppress("NOTHING_TO_INLINE")
-internal inline fun ColorBuffer.requireColorsResolutionMatch(
+inline fun ColorBuffer.requireColorsResolutionMatch(
     colors: ColorBuffer,
     mapBufferName: String
 ) {
